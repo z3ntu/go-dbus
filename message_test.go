@@ -2,15 +2,11 @@ package dbus
 
 import "testing"
 
-import (
-	"strings"
-)
-
 func TestUnmarshal(t *testing.T) {
 
 	teststr := "l\x01\x00\x01\x00\x00\x00\x00\x01\x00\x00\x00m\x00\x00\x00\x01\x01o\x00\x15\x00\x00\x00/org/freedesktop/DBus\x00\x00\x00\x02\x01s\x00\x14\x00\x00\x00org.freedesktop.DBus\x00\x00\x00\x00\x03\x01s\x00\x05\x00\x00\x00Hello\x00\x00\x00\x06\x01s\x00\x14\x00\x00\x00org.freedesktop.DBus\x00\x00\x00\x00"
 
-	msg, _, e := _Unmarshal(strings.Bytes(teststr))
+	msg, _, e := _Unmarshal([]byte(teststr))
 	if nil != e {
 		t.Error("Unmarshal Failed")
 	}
@@ -45,6 +41,6 @@ func TestMarshal(t *testing.T) {
 
 	buff, _ := msg._Marshal()
 	if teststr != string(buff) {
-		t.Error("#1 Failed\n", buff, "\n", strings.Bytes(teststr))
+		t.Error("#1 Failed\n", buff, "\n", []byte(teststr))
 	}
 }

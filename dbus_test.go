@@ -1,4 +1,3 @@
-
 package dbus
 
 import (
@@ -6,11 +5,13 @@ import (
 	"fmt"
 )
 
-func TestDbus(t *testing.T){
-	con,_ := NewSessionBus()
-	e := con.Initialize()
+func TestDBus(t *testing.T){
+	con,err := NewSessionBus()
+	if err != nil { t.Fatal(err.Error())}
 
-	if e != nil { t.Error("#1 Failed")}
+	err = con.Initialize()
+
+	if err != nil { t.Error("#1 Failed")}
 
 	obj := con.GetObject("org.freedesktop.Notifications", "/org/freedesktop/Notifications")
 

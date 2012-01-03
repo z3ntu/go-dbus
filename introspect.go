@@ -1,9 +1,8 @@
 package dbus
 
 import (
-	"xml"
-	"os"
 	"bytes"
+	"encoding/xml"
 	"strings"
 )
 
@@ -61,9 +60,9 @@ type SignalData interface {
 	GetSignature() string
 }
 
-func NewIntrospect(xmlIntro string) (Introspect, os.Error) {
+func NewIntrospect(xmlIntro string) (Introspect, error) {
 	intro := new(introspect)
-	buff := bytes.NewBuffer(strings.Bytes(xmlIntro))
+	buff := bytes.NewBuffer([]byte(xmlIntro))
 	err := xml.Unmarshal(buff, intro)
 	if err != nil {
 		return nil, err

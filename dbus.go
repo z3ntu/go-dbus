@@ -3,12 +3,11 @@ package dbus
 import (
 	"net"
 	"regexp"
-	"os"
+	"errors"
 	"fmt"
-	"container/vector"
-//	"strings"
 	"bytes"
-	"reflect"
+	"os"
+	"github.com/kr/pretty.go"
 )
 
 const dbusXMLIntro = `
@@ -100,7 +99,7 @@ type Connection struct {
 	uniqName          string
 	guid              string
 	methodCallReplies map[uint32](func(msg *Message))
-	signalMatchRules  *vector.Vector
+	signalMatchRules  []signalHandler
 	conn              net.Conn
 	buffer            *bytes.Buffer
 	proxy             *Interface
@@ -118,17 +117,20 @@ type Interface struct {
 	intro InterfaceData
 }
 
-func NewSessionBus() (*Connection, os.Error){
+func NewSessionBus() (*Connection, error){
 	bus := new(Connection)
 	bus.path = os.Getenv("DBUS_SESSION_BUS_ADDRESS")
 
-	var re *regexp.Regexp
-	re, _ = regexp.Compile("^unix:abstract=(.*),guid=(.*)")
+	re, _ := regexp.Compile("^unix:abstract=(.*),guid=(.*)")
 
-	m := re.ExecuteString(bus.path)
+	m := re.FindAllStringSubmatch(bus.path, -1)
 	if nil != m {
-		abPath := bus.path[m[2]:m[3]] // get regexp 1st group
-		addr, _ := net.ResolveUnixAddr("unix", "\x00"+abPath)
+		abPath := m[0][1] // get regexp 1st group
+		addr, err := net.ResolveUnixAddr("unix", "\x00"+abPath)
+		if err != nil {
+			return nil, err
+		}
+		fmt.Println(addr.String())
 		conn, err := net.DialUnix("unix", nil, addr)
 		if err != nil{
 			return nil, err
@@ -137,10 +139,10 @@ func NewSessionBus() (*Connection, os.Error){
 		return bus,nil
 	}
 
-	return nil, os.NewError("NewSessionBus Failed")
+	return nil, errors.New("NewSessionBus Failed")
 }
 
-func NewSystemBus() (*Connection, os.Error){
+func NewSystemBus() (*Connection, error){
 	bus := new(Connection)
 	bus.path = "unix:path=/var/run/dbus/system_bus_socket"
 
@@ -153,9 +155,9 @@ func NewSystemBus() (*Connection, os.Error){
 	return bus,nil
 }
 
-func (p *Connection) Initialize() os.Error {
+func (p *Connection) Initialize() error {
 	p.methodCallReplies = make(map[uint32]func(*Message))
-	p.signalMatchRules = new(vector.Vector)
+	p.signalMatchRules = make([]signalHandler, 0)
 	p.proxy = p._GetProxy()
 	p.buffer = bytes.NewBuffer([]byte{})
 	p._Auth()
@@ -164,7 +166,7 @@ func (p *Connection) Initialize() os.Error {
 	return nil
 }
 
-func (p *Connection) _Auth() os.Error {
+func (p *Connection) _Auth() error {
 	auth := new(authState)
 	auth.AddAuthenticator(new(AuthExternal))
 
@@ -203,22 +205,21 @@ func (p *Connection) _MessageDispatch(msg *Message) {
 		rs := msg.replySerial
 		if replyFunc, ok := p.methodCallReplies[rs]; ok {
 			replyFunc(msg)
-			p.methodCallReplies[rs] = nil, false
+			delete(p.methodCallReplies, rs)
 		}
   case SIGNAL:
-		for v := range p.signalMatchRules.Iter() {
-			handler := v.(signalHandler)
+		for _,handler := range p.signalMatchRules {
 			if handler.mr._Match(msg) {
 				handler.proc(msg)
 			}
 		}
 	case ERROR:
 		fmt.Println("ERROR")
-		fmt.Printf("%#v\n", msg)
+		pretty.Printf("%# v", msg)
 	}
 }
 
-func (p *Connection) _PopMessage() (*Message, os.Error) {
+func (p *Connection) _PopMessage() (*Message, error) {
 	msg, n, err := _Unmarshal(p.buffer.Bytes())
 	if err != nil {
 		return nil, err
@@ -227,7 +228,7 @@ func (p *Connection) _PopMessage() (*Message, os.Error) {
 	return msg, nil
 }
 
-func (p *Connection) _UpdateBuffer() os.Error {
+func (p *Connection) _UpdateBuffer() error {
 	//	_, e := p.buffer.ReadFrom(p.conn);
 	buff := make([]byte, 4096)
 	n, e := p.conn.Read(buff)
@@ -235,7 +236,7 @@ func (p *Connection) _UpdateBuffer() os.Error {
 	return e
 }
 
-func (p *Connection) _SendSync(msg *Message, callback func(*Message)) os.Error {
+func (p *Connection) _SendSync(msg *Message, callback func(*Message)) error {
 	seri := uint32(msg.serial)
 	recvChan := make(chan int)
 	p.methodCallReplies[seri] = func(rmsg *Message) {
@@ -249,7 +250,7 @@ func (p *Connection) _SendSync(msg *Message, callback func(*Message)) os.Error {
 	return nil
 }
 
-func (p *Connection) _SendHello() os.Error {
+func (p *Connection) _SendHello() error {
 	p.CallMethod(p.proxy, "Hello")
 	return nil
 }
@@ -265,7 +266,7 @@ func (p *Connection) _GetIntrospect(dest string, path string) Introspect {
 	var intro Introspect
 
 	p._SendSync(msg, func(reply *Message) {
-		if v, ok := reply.Params.At(0).(string); ok {
+		if v, ok := reply.Params[0].(string); ok {
 			if i, err := NewIntrospect(v); err == nil {
 				intro = i
 			}
@@ -295,19 +296,6 @@ func (p *Connection) Interface(obj *Object, name string) *Interface {
 	return iface
 }
 
-func _ArgToVector(args ...) *vector.Vector {
-	vec := new(vector.Vector)
-	v := reflect.NewValue(args).(*reflect.StructValue)
-	for i := 0; i < v.NumField(); i++ {
-		val := v.Field(i)
-		if vi := val.Interface(); vi != nil {
-			vec.Push(vi)
-		}
-	}
-	
-	return vec
-}
-
 func (p *Connection) _GetProxy() *Interface {
 	obj := new(Object)
 	obj.path = "/org/freedesktop/DBus"
@@ -322,11 +310,11 @@ func (p *Connection) _GetProxy() *Interface {
 	return iface
 }
 
-func (p *Connection) CallMethod(iface *Interface, name string, args ...) ([]interface{}, os.Error) {
+func (p *Connection) CallMethod(iface *Interface, name string, args ...interface{}) ([]interface{}, error) {
 
 	method := iface.intro.GetMethodData(name)
 	if nil == method {
-		return nil, os.NewError("Invalid Method")
+		return nil, errors.New("Invalid Method")
 	}
 
 	msg := NewMessage()
@@ -337,21 +325,20 @@ func (p *Connection) CallMethod(iface *Interface, name string, args ...) ([]inte
 	msg.Dest = iface.obj.dest
 	msg.Member = name
 	msg.Sig = method.GetInSignature()
-	msg.Params.AppendVector(_ArgToVector(args))
+	msg.Params = args[:]
 
 	var ret []interface{}
 	p._SendSync(msg, func(reply *Message) { 
-		fmt.Println("CallMethodRet: " , reply.Params.Data())
-		ret = reply.Params.Data()})
+		ret = reply.Params})
 
 	return ret,nil
 }
 
-func (p *Connection) EmitSignal(iface *Interface, name string, args ...) os.Error{
+func (p *Connection) EmitSignal(iface *Interface, name string, args ...interface{}) error {
 
 	signal := iface.intro.GetSignalData(name)
 	if nil == signal {
-		return os.NewError("Invalid Signalx")
+		return errors.New("Invalid Signalx")
 	}
 
 	msg := NewMessage()
@@ -362,7 +349,7 @@ func (p *Connection) EmitSignal(iface *Interface, name string, args ...) os.Erro
 	msg.Dest = iface.obj.dest
 	msg.Member = name
 	msg.Sig = signal.GetSignature()
-	msg.Params.AppendVector(_ArgToVector(args))
+	msg.Params = args[:]
 
 	buff, _ := msg._Marshal()
 	_,err := p.conn.Write(buff)
@@ -381,6 +368,6 @@ func(p *Connection) GetObject(dest string, path string) *Object{
 }
 
 func(p *Connection) AddSignalHandler(mr *MatchRule, proc func(*Message)) {
-	p.signalMatchRules.Push(signalHandler{*mr, proc})
+	p.signalMatchRules = append(p.signalMatchRules, signalHandler{*mr, proc})
 	p.CallMethod(p.proxy, "AddMatch", mr._ToString())
 }

@@ -1,11 +1,8 @@
 package dbus
 
 import (
-	"container/vector"
-	"os"
 	"bytes"
 	"sync"
-	//"fmt";
 )
 
 type MessageType int
@@ -32,10 +29,10 @@ type Message struct {
 	bodyLength  int
 	Path        string
 	Dest        string
-	Iface        string
+	Iface       string
 	Member      string
 	Sig         string
-	Params      *vector.Vector
+	Params      []interface{}
 	serial      int
 	replySerial uint32
 	ErrorName   string
@@ -61,55 +58,57 @@ func NewMessage() *Message {
 	msg.Flags = 0
 	msg.Protocol = 1
 
-	msg.Params = new(vector.Vector)
+	msg.Params = make([]interface{}, 0)
 
 	return msg
 }
 
-func (p *Message) _BufferToMessage(buff []byte) (int, os.Error) {
-	vec, bufIdx, e := Parse(buff, "yyyyuua(yv)", 0)
+func (p *Message) _BufferToMessage(buff []byte) (int, error) {
+	slice, bufIdx, e := Parse(buff, "yyyyuua(yv)", 0)
 	if e != nil {
 		return 0, e
 	}
 
-	p.Type = MessageType(vec.At(1).(byte))
-	p.Flags = MessageFlag(vec.At(2).(byte))
-	p.Protocol = int(vec.At(3).(byte))
-	p.bodyLength = int(vec.At(4).(uint32))
-	p.serial = int(vec.At(5).(uint32))
+	p.Type = MessageType(slice[1].(byte))
+	p.Flags = MessageFlag(slice[2].(byte))
+	p.Protocol = int(slice[3].(byte))
+	p.bodyLength = int(slice[4].(uint32))
+	p.serial = int(slice[5].(uint32))
+    
+	if vec, ok := slice[6].([]interface{}); ok {
+		for _,v := range vec {
+			tmpSlice := v.([]interface{})
+			t := int(tmpSlice[0].(byte))
+			val := tmpSlice[1]
 
-	for v := range vec.At(6).(*vector.Vector).Iter() {
-		t := int(v.(*vector.Vector).At(0).(byte))
-		val := v.(*vector.Vector).At(1)
-
-		switch t {
-		case 1:
-			p.Path = val.(string)
-		case 2:
-			p.Iface = val.(string)
-		case 3:
-			p.Member = val.(string)
-		case 4:
-			p.ErrorName = val.(string)
-		case 5:
-			p.replySerial = val.(uint32)
-		case 6:
-			p.Dest = val.(string)
-		case 7:
-			// FIXME
-		case 8:
-			p.Sig = val.(string)
+			switch t {
+			case 1:
+				p.Path = val.(string)
+			case 2:
+				p.Iface = val.(string)
+			case 3:
+				p.Member = val.(string)
+			case 4:
+				p.ErrorName = val.(string)
+			case 5:
+				p.replySerial = val.(uint32)
+			case 6:
+				p.Dest = val.(string)
+			case 7:
+				// FIXME
+			case 8:
+				p.Sig = val.(string)
+			}
 		}
 	}
 	idx := _Align(8, bufIdx)
 	if 0 < p.bodyLength {
-		vec, idx, _ = Parse(buff, p.Sig, idx)
-		p.Params.AppendVector(vec)
+		p.Params, idx, _ = Parse(buff, p.Sig, idx)
 	}
 	return idx, nil
 }
 
-func _Unmarshal(buff []byte) (*Message, int, os.Error) {
+func _Unmarshal(buff []byte) (*Message, int, error) {
 	msg := NewMessage()
 	idx, e := msg._BufferToMessage(buff)
 	if e != nil {
@@ -118,7 +117,7 @@ func _Unmarshal(buff []byte) (*Message, int, os.Error) {
 	return msg, idx, nil
 }
 
-func (p *Message) _Marshal() ([]byte, os.Error) {
+func (p *Message) _Marshal() ([]byte, error) {
 	buff := bytes.NewBuffer([]byte{})
 	_AppendByte(buff, byte('l')) // little Endian
 	_AppendByte(buff, byte(p.Type))

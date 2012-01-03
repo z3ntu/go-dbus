@@ -6,7 +6,12 @@ import(
 )
 
 func TestToString(t *testing.T){
-	verifyStr := "type='signal',interface='org.freedesktop.DBus',member='Foo',path='/bar/foo'"
+	verifyStr := "&dbus.MatchRule{\n" +
+"	Type:      \"signal\",\n" +
+"	Interface: \"org.freedesktop.DBus\",\n"+
+"	Member:    \"Foo\",\n"+
+"	Path:      \"/bar/foo\",\n"+
+"}"
 
 	mr := MatchRule{
 	  Type:"signal",

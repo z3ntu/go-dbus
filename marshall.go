@@ -2,11 +2,10 @@ package dbus
 
 import (
 	"bytes"
-	"strings"
 	"encoding/binary"
-	"os"
-	"container/vector"
+	"errors"
 	"fmt"
+	"strings"
 )
 
 func _Align(length int, index int) int {
@@ -31,13 +30,13 @@ func _AppendAlign(length int, buff *bytes.Buffer) {
 func _AppendString(buff *bytes.Buffer, str string) {
 	_AppendAlign(4, buff)
 	binary.Write(buff, binary.LittleEndian, int32(len(str)))
-	buff.Write(strings.Bytes(str))
+	buff.Write([]byte(str))
 	buff.WriteByte(0)
 }
 
 func _AppendSignature(buff *bytes.Buffer, sig string) {
 	_AppendByte(buff, byte(len(sig)))
-	buff.Write(strings.Bytes(sig))
+	buff.Write([]byte(sig))
 	buff.WriteByte(0)
 }
 
@@ -57,7 +56,7 @@ func _AppendArray(buff *bytes.Buffer, align int, proc func(b *bytes.Buffer)) {
 	_AppendAlign(4, buff)
 	_AppendAlign(align, buff)
 	b := bytes.NewBuffer(buff.Bytes())
-	b.Write(strings.Bytes("ABCD")) // "ABCD" will be replaced with array-size.
+	b.Write([]byte("ABCD")) // "ABCD" will be replaced with array-size.
 	pos1 := b.Len()
 	proc(b)
 	pos2 := b.Len()
@@ -65,9 +64,9 @@ func _AppendArray(buff *bytes.Buffer, align int, proc func(b *bytes.Buffer)) {
 	buff.Write(b.Bytes()[pos1:pos2])
 }
 
-func _AppendValue(buff *bytes.Buffer, sig string, val interface{}) (sigOffset int, e os.Error) {
+func _AppendValue(buff *bytes.Buffer, sig string, val interface{}) (sigOffset int, e error) {
 	if len(sig) == 0 {
-		return 0, os.NewError("Invalid Signature")
+		return 0, errors.New("Invalid Signature")
 	}
 
 	e = nil
@@ -75,7 +74,7 @@ func _AppendValue(buff *bytes.Buffer, sig string, val interface{}) (sigOffset in
 	switch sig[0] {
 	case 'y': // byte
 		_AppendByte(buff, val.(byte))
-		sigOffset =1
+		sigOffset = 1
 
 	case 's': // string
 		_AppendString(buff, val.(string))
@@ -92,8 +91,8 @@ func _AppendValue(buff *bytes.Buffer, sig string, val interface{}) (sigOffset in
 	case 'a': // ary
 		sigBlock, _ := _GetSigBlock(sig, 1)
 		_AppendArray(buff, 1, func(b *bytes.Buffer) {
-			if vec, ok := val.(*vector.Vector); ok && vec != nil {
-				for v := range vec.Iter() {
+			if slice, ok := val.([]interface{}); ok && slice != nil {
+				for _,v := range slice {
 					_AppendValue(b, sigBlock, v)
 				}
 			}
@@ -120,25 +119,26 @@ func _AppendValue(buff *bytes.Buffer, sig string, val interface{}) (sigOffset in
 	return
 }
 
-func _AppendParamsData(buff *bytes.Buffer, sig string, params *vector.Vector) {
+func _AppendParamsData(buff *bytes.Buffer, sig string, params []interface{}) {
 	sigOffset := 0
 	prmsOffset := 0
-	for ; sigOffset < len(sig); prmsOffset++ {
-		offset, _ := _AppendValue(buff, sig[sigOffset:len(sig)], params.At(prmsOffset))
+	sigLen := len(sig)
+	for ; sigOffset < sigLen; prmsOffset++ {
+		offset, _ := _AppendValue(buff, sig[sigOffset:len(sig)], params[prmsOffset])
 		sigOffset += offset
 	}
 }
 
-func _GetByte(buff []byte, index int) (byte, os.Error) {
+func _GetByte(buff []byte, index int) (byte, error) {
 	if len(buff) <= index {
-		return 0, os.NewError("index error")
+		return 0, errors.New("index error")
 	}
 	return buff[index], nil
 }
 
-func _GetInt16(buff []byte, index int) (int16, os.Error) {
+func _GetInt16(buff []byte, index int) (int16, error) {
 	if len(buff) <= index+2-1 {
-		return 0, os.NewError("index error")
+		return 0, errors.New("index error")
 	}
 	var n int16
 	e := binary.Read(bytes.NewBuffer(buff[index:len(buff)]), binary.LittleEndian, &n)
@@ -148,9 +148,9 @@ func _GetInt16(buff []byte, index int) (int16, os.Error) {
 	return n, nil
 }
 
-func _GetUint16(buff []byte, index int) (uint16, os.Error) {
+func _GetUint16(buff []byte, index int) (uint16, error) {
 	if len(buff) <= index+2-1 {
-		return 0, os.NewError("index error")
+		return 0, errors.New("index error")
 	}
 	var q uint16
 	e := binary.Read(bytes.NewBuffer(buff[index:len(buff)]), binary.LittleEndian, &q)
@@ -160,9 +160,9 @@ func _GetUint16(buff []byte, index int) (uint16, os.Error) {
 	return q, nil
 }
 
-func _GetInt32(buff []byte, index int) (int32, os.Error) {
+func _GetInt32(buff []byte, index int) (int32, error) {
 	if len(buff) <= index+4-1 {
-		return 0, os.NewError("index error")
+		return 0, errors.New("index error")
 	}
 	var l int32
 	e := binary.Read(bytes.NewBuffer(buff[index:len(buff)]), binary.LittleEndian, &l)
@@ -172,9 +172,9 @@ func _GetInt32(buff []byte, index int) (int32, os.Error) {
 	return l, nil
 }
 
-func _GetUint32(buff []byte, index int) (uint32, os.Error) {
+func _GetUint32(buff []byte, index int) (uint32, error) {
 	if len(buff) <= index+4-1 {
-		return 0, os.NewError("index error")
+		return 0, errors.New("index error")
 	}
 	var u uint32
 	e := binary.Read(bytes.NewBuffer(buff[index:len(buff)]), binary.LittleEndian, &u)
@@ -184,9 +184,9 @@ func _GetUint32(buff []byte, index int) (uint32, os.Error) {
 	return u, nil
 }
 
-func _GetBoolean(buff []byte, index int) (bool, os.Error) {
+func _GetBoolean(buff []byte, index int) (bool, error) {
 	if len(buff) <= index+4-1 {
-		return false, os.NewError("index error")
+		return false, errors.New("index error")
 	}
 	var v int32
 	e := binary.Read(bytes.NewBuffer(buff[index:len(buff)]), binary.LittleEndian, &v)
@@ -196,16 +196,16 @@ func _GetBoolean(buff []byte, index int) (bool, os.Error) {
 	return 0 != v, nil
 }
 
-func _GetString(buff []byte, index int, size int) (string, os.Error) {
+func _GetString(buff []byte, index int, size int) (string, error) {
 	if len(buff) <= (index + size - 1) {
-		return "", os.NewError("index error")
+		return "", errors.New("index error")
 	}
 	return string(buff[index : index+size]), nil
 }
 
-func _GetStructSig(sig string, startIdx int) (string, os.Error) {
+func _GetStructSig(sig string, startIdx int) (string, error) {
 	if len(sig) <= startIdx || '(' != sig[startIdx] {
-		return "<nil>", os.NewError("index error")
+		return "<nil>", errors.New("index error")
 	}
 	sigIdx := startIdx + 1
 	for depth := 0; sigIdx < len(sig); sigIdx++ {
@@ -220,12 +220,12 @@ func _GetStructSig(sig string, startIdx int) (string, os.Error) {
 		}
 	}
 
-	return "<nil>", os.NewError("parse error")
+	return "<nil>", errors.New("parse error")
 }
 
-func _GetDictSig(sig string, startIdx int) (string, os.Error) {
+func _GetDictSig(sig string, startIdx int) (string, error) {
 	if len(sig) <= startIdx || '{' != sig[startIdx] {
-		return "<nil>", os.NewError("index error")
+		return "<nil>", errors.New("index error")
 	}
 	sigIdx := startIdx + 1
 	for depth := 0; sigIdx < len(sig); sigIdx++ {
@@ -240,10 +240,10 @@ func _GetDictSig(sig string, startIdx int) (string, os.Error) {
 		}
 	}
 
-	return "<nil>", os.NewError("parse error")
+	return "<nil>", errors.New("parse error")
 }
 
-func _GetSigBlock(sig string, index int) (string, os.Error) {
+func _GetSigBlock(sig string, index int) (string, error) {
 	switch sig[index] {
 	case '(':
 		str, e := _GetStructSig(sig, index)
@@ -265,18 +265,17 @@ func _GetSigBlock(sig string, index int) (string, os.Error) {
 	return sig[index : index+1], nil
 }
 
-func _GetVariant(buff []byte, index int) (valvec *vector.Vector, retidx int, e os.Error) {
+func _GetVariant(buff []byte, index int) (vals []interface{}, retidx int, e error) {
 	retidx = index
 	sigSize := int(buff[retidx])
 	retidx++
 	sig := string(buff[retidx : retidx+sigSize])
-	valvec, retidx, e = Parse(buff, sig, retidx+sigSize+1)
+	vals, retidx, e = Parse(buff, sig, retidx+sigSize+1)
 	return
 }
 
-
-func Parse(buff []byte, sig string, index int) (vec *vector.Vector, bufIdx int, err os.Error) {
-	vec = new(vector.Vector)
+func Parse(buff []byte, sig string, index int) (slice []interface{}, bufIdx int, err error) {
+	slice = make([]interface{}, 0)
 	bufIdx = index
 	for sigIdx := 0; sigIdx < len(sig); {
 		switch sig[sigIdx] {
@@ -287,7 +286,7 @@ func Parse(buff []byte, sig string, index int) (vec *vector.Vector, bufIdx int, 
 				err = e
 				return
 			}
-			vec.Push(b)
+			slice = append(slice, bool(b))
 			bufIdx += 4
 			sigIdx++
 
@@ -297,7 +296,7 @@ func Parse(buff []byte, sig string, index int) (vec *vector.Vector, bufIdx int, 
 				err = e
 				return
 			}
-			vec.Push(v)
+			slice = append(slice, v)
 			bufIdx++
 			sigIdx++
 
@@ -308,8 +307,7 @@ func Parse(buff []byte, sig string, index int) (vec *vector.Vector, bufIdx int, 
 				err = e
 				return
 			}
-
-			vec.Push(n)
+			slice = append(slice, n)
 			bufIdx += 2
 			sigIdx++
 
@@ -320,21 +318,18 @@ func Parse(buff []byte, sig string, index int) (vec *vector.Vector, bufIdx int, 
 				err = e
 				return
 			}
-
-			vec.Push(q)
+            slice = append(slice, q)
 			bufIdx += 2
 			sigIdx++
 
 		case 'u': // uint32
 			bufIdx = _Align(4, bufIdx)
-
 			u, e := _GetUint32(buff, bufIdx)
 			if e != nil {
 				err = e
 				return
 			}
-
-			vec.Push(u)
+            slice = append(slice, u)
 			bufIdx += 4
 			sigIdx++
 
@@ -352,8 +347,7 @@ func Parse(buff []byte, sig string, index int) (vec *vector.Vector, bufIdx int, 
 				err = e
 				return
 			}
-
-			vec.Push(str)
+            slice = append(slice, str)
 			bufIdx += (4 + int(size) + 1)
 			sigIdx++
 
@@ -369,7 +363,7 @@ func Parse(buff []byte, sig string, index int) (vec *vector.Vector, bufIdx int, 
 				err = e
 				return
 			}
-			vec.Push(str)
+			slice = append(slice, str)
 			bufIdx += (1 + int(size) + 1)
 			sigIdx++
 
@@ -388,20 +382,19 @@ func Parse(buff []byte, sig string, index int) (vec *vector.Vector, bufIdx int, 
 			}
 
 			aryIdx := startIdx + 4
-			aryVec := new(vector.Vector)
+			tmpSlice := make([]interface{}, 0)
 			for aryIdx < (startIdx+4)+int(arySize) {
-				retvec, retidx, e := Parse(buff, sigBlock, aryIdx)
+				retSlice, retidx, e := Parse(buff, sigBlock, aryIdx)
 				if e != nil {
 					err = e
 					return
 				}
-
-				aryVec.AppendVector(retvec)
+                tmpSlice = append(tmpSlice, retSlice...)
 				aryIdx = retidx
 			}
 			bufIdx = aryIdx
 			sigIdx += (1 + len(sigBlock))
-			vec.Push(aryVec)
+			slice = append(slice, tmpSlice)
 
 		case '(': // struct
 			idx := _Align(8, bufIdx)
@@ -411,7 +404,7 @@ func Parse(buff []byte, sig string, index int) (vec *vector.Vector, bufIdx int, 
 				return
 			}
 
-			retvec, retidx, e := Parse(buff, stSig, idx)
+			retSlice, retidx, e := Parse(buff, stSig, idx)
 			if e != nil {
 				err = e
 				return
@@ -419,7 +412,7 @@ func Parse(buff []byte, sig string, index int) (vec *vector.Vector, bufIdx int, 
 
 			bufIdx = retidx
 			sigIdx += (len(stSig) + 2)
-			vec.Push(retvec)
+			slice = append(slice, retSlice)
 
 		case '{': // dict
 			idx := _Align(8, bufIdx)
@@ -429,7 +422,7 @@ func Parse(buff []byte, sig string, index int) (vec *vector.Vector, bufIdx int, 
 				return
 			}
 
-			retvec, retidx, e := Parse(buff, stSig, idx)
+			retSlice, retidx, e := Parse(buff, stSig, idx)
 			if e != nil {
 				err = e
 				return
@@ -437,10 +430,10 @@ func Parse(buff []byte, sig string, index int) (vec *vector.Vector, bufIdx int, 
 
 			bufIdx = retidx
 			sigIdx += (len(stSig) + 2)
-			vec.Push(retvec)
+			slice = append(slice, retSlice)
 
 		case 'v': // variant
-			val, idx, e := _GetVariant(buff, bufIdx)
+			vals, idx, e := _GetVariant(buff, bufIdx)
 			if e != nil {
 				err = e
 				return
@@ -448,11 +441,11 @@ func Parse(buff []byte, sig string, index int) (vec *vector.Vector, bufIdx int, 
 
 			bufIdx = idx
 			sigIdx++
-			vec.AppendVector(val)
+			slice = append(slice, vals...)
 
 		default:
 			fmt.Println(sig[sigIdx])
-			return nil, index, os.NewError("unknown type")
+			return nil, index, errors.New("unknown type")
 		}
 	}
 	return

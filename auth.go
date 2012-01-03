@@ -1,33 +1,34 @@
-
 package dbus
 
-import(
-	"strings"
+import (
 	"container/list"
+	"errors"
 	"fmt"
-	"os"
 	"net"
+	"os"
+	"strings"
 )
 
-var(
-	ErrAuthUnknownCommand = os.NewError("UnknowAuthCommand")
-	ErrAuthFailed = os.NewError("AuthenticationFailed")
+var (
+	ErrAuthUnknownCommand = errors.New("UnknowAuthCommand")
+	ErrAuthFailed         = errors.New("AuthenticationFailed")
 )
 
-type Authenticator interface{
-	Mechanism() string;
-	Authenticate() string;
+type Authenticator interface {
+	Mechanism() string
+	Authenticate() string
 }
 
-type AuthExternal struct{
+type AuthExternal struct {
 }
 
-func(p *AuthExternal) Mechanism() string{ return "EXTERNAL"}
-func(p *AuthExternal) Authenticate() string{
+func (p *AuthExternal) Mechanism() string { return "EXTERNAL" }
+func (p *AuthExternal) Authenticate() string {
 	return fmt.Sprintf("%x", fmt.Sprintf("%d", os.Getuid()))
 }
 
 type authStatus int
+
 const (
 	STARTING = iota
 	WAITING_FOR_DATA
@@ -40,57 +41,61 @@ const (
 	AUTH_NEXT
 )
 
-type authState struct{
-	status authStatus
-	auth Authenticator
+type authState struct {
+	status   authStatus
+	auth     Authenticator
 	authList list.List
-	conn net.Conn
+	conn     net.Conn
 }
 
-func(p *authState) AddAuthenticator(auth Authenticator){
+func (p *authState) AddAuthenticator(auth Authenticator) {
 	p.authList.PushBack(auth)
 }
 
-func(p *authState) _NextAuthenticator(){
-	if p.authList.Len() == 0{
+func (p *authState) _NextAuthenticator() {
+	if p.authList.Len() == 0 {
 		p.auth = nil
 		return
 	}
 
-	p.auth,_ = p.authList.Front().Value.(Authenticator)
+	p.auth, _ = p.authList.Front().Value.(Authenticator)
 	p.authList.Remove(p.authList.Front())
 	msg := strings.Join([]string{"AUTH", p.auth.Mechanism(), p.auth.Authenticate()}, " ")
 	p._Send(msg)
 }
 
-func(p *authState) _NextMessage() []string{
+func (p *authState) _NextMessage() []string {
 	b := make([]byte, 4096)
 	p.conn.Read(b)
 	retstr := string(b)
-	return strings.Split(strings.TrimSpace(retstr), " ", 0)
+	return strings.SplitN(strings.TrimSpace(retstr), " ", 0)
 }
 
-func(p *authState) _Send(msg string){
-	p.conn.Write(strings.Bytes(msg + "\r\n"));
+func (p *authState) _Send(msg string) {
+	p.conn.Write([]byte(msg + "\r\n"))
 }
 
-func(p *authState) Authenticate(conn net.Conn) os.Error{
+func (p *authState) Authenticate(conn net.Conn) error {
 	p.conn = conn
-	p.conn.Write(strings.Bytes("\x00"))
+	p.conn.Write([]byte("\x00"))
 	p._NextAuthenticator()
 	p.status = STARTING
-	for ;p.status != AUTHENTICATED;{
-		if nil == p.auth { return ErrAuthFailed}
-		if err := p._NextState(); err != nil{ return err}
+	for p.status != AUTHENTICATED {
+		if nil == p.auth {
+			return ErrAuthFailed
+		}
+		if err := p._NextState(); err != nil {
+			return err
+		}
 	}
 	return nil
 }
 
-func(p *authState) _NextState() (err os.Error){
+func (p *authState) _NextState() (err error) {
 	nextMsg := p._NextMessage()
-	
+
 	if STARTING == p.status {
-		switch nextMsg[0]{
+		switch nextMsg[0] {
 		case "CONTINUE":
 			p.status = WAITING_FOR_DATA
 		case "OK":
@@ -98,7 +103,7 @@ func(p *authState) _NextState() (err os.Error){
 		}
 	}
 
-	switch p.status{
+	switch p.status {
 	case WAITING_FOR_DATA:
 		err = p._WaitingForData(nextMsg)
 	case WAITING_FOR_OK:
@@ -107,11 +112,11 @@ func(p *authState) _NextState() (err os.Error){
 		err = p._WaitingForReject(nextMsg)
 	}
 
-	return;
+	return
 }
 
-func(p *authState) _WaitingForData(msg []string) os.Error{
-	switch msg[0]{
+func (p *authState) _WaitingForData(msg []string) error {
+	switch msg[0] {
 	case "DATA":
 		return ErrAuthUnknownCommand
 	case "REJECTED":
@@ -127,8 +132,8 @@ func(p *authState) _WaitingForData(msg []string) os.Error{
 	return nil
 }
 
-func(p *authState) _WaitingForOK(msg []string) os.Error{
-	switch msg[0]{
+func (p *authState) _WaitingForOK(msg []string) error {
+	switch msg[0] {
 	case "OK":
 		p._Send("BEGIN")
 		p.status = AUTHENTICATED
@@ -146,8 +151,8 @@ func(p *authState) _WaitingForOK(msg []string) os.Error{
 	return nil
 }
 
-func(p *authState) _WaitingForReject(msg []string) os.Error{
-	switch msg[0]{
+func (p *authState) _WaitingForReject(msg []string) error {
+	switch msg[0] {
 	case "REJECT":
 		p._NextAuthenticator()
 		p.status = WAITING_FOR_OK

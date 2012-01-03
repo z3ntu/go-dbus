@@ -2,6 +2,7 @@ package dbus
 
 import (
 	"testing"
+	"fmt"
 )
 
 var introStr = `
@@ -45,6 +46,7 @@ func TestIntrospect(t *testing.T) {
 	if intf == nil {
 		t.Error("Failed #2-1")
 	}
+	fmt.Println(intf.GetName())
 	if intf.GetName() != "org.freedesktop.SampleInterface" {
 		t.Error("Failed #2-2")
 	}

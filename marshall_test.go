@@ -3,10 +3,7 @@ package dbus
 import (
 	"testing"
 	"bytes"
-	"strings"
-	"container/vector"
 	"reflect"
-	"os"
 )
 
 func TestAlign(t *testing.T) {
@@ -25,7 +22,7 @@ func TestAlign(t *testing.T) {
 func checkAppendAlign(t *testing.T, input string, align int, expected string) {
 	buff := bytes.NewBufferString(input)
 	_AppendAlign(align, buff)
-	if !bytes.Equal(strings.Bytes(expected), buff.Bytes()) {
+	if !bytes.Equal([]byte(expected), buff.Bytes()) {
 		t.Error("Failed")
 	}
 }
@@ -41,8 +38,8 @@ func checkAppendString(t *testing.T, input []string, expected string) {
 	for _, str := range input {
 		_AppendString(buff, str)
 	}
-	if !bytes.Equal(strings.Bytes(expected), buff.Bytes()) {
-		t.Error("Failed:expected", strings.Bytes(expected), ", actual:", buff.Bytes())
+	if !bytes.Equal([]byte(expected), buff.Bytes()) {
+		t.Error("Failed:expected", []byte(expected), ", actual:", buff.Bytes())
 	}
 }
 
@@ -54,11 +51,11 @@ func TestAppendString(t *testing.T) {
 func TestAppendByte(t *testing.T) {
 	buff := bytes.NewBuffer([]byte{})
 	_AppendByte(buff, 1)
-	if !bytes.Equal(strings.Bytes("\x01"), buff.Bytes()) {
+	if !bytes.Equal([]byte("\x01"), buff.Bytes()) {
 		t.Error("#1 Failed")
 	}
 	_AppendByte(buff, 2)
-	if !bytes.Equal(strings.Bytes("\x01\x02"), buff.Bytes()) {
+	if !bytes.Equal([]byte("\x01\x02"), buff.Bytes()) {
 		t.Error("#2 Failed")
 	}
 }
@@ -66,12 +63,12 @@ func TestAppendByte(t *testing.T) {
 func TestAppendUint32(t *testing.T) {
 	buff := bytes.NewBuffer([]byte{})
 	_AppendUint32(buff, 1)
-	if !bytes.Equal(strings.Bytes("\x01\x00\x00\x00"), buff.Bytes()) {
+	if !bytes.Equal([]byte("\x01\x00\x00\x00"), buff.Bytes()) {
 		t.Error("#1 Failed")
 	}
 	_AppendByte(buff, 2)
 	_AppendUint32(buff, 0xffffffff)
-	if !bytes.Equal(strings.Bytes("\x01\x00\x00\x00\x02\x00\x00\x00\xff\xff\xff\xff"), buff.Bytes()) {
+	if !bytes.Equal([]byte("\x01\x00\x00\x00\x02\x00\x00\x00\xff\xff\xff\xff"), buff.Bytes()) {
 		t.Error("#2 Failed")
 	}
 }
@@ -79,7 +76,7 @@ func TestAppendUint32(t *testing.T) {
 func TestAppendInt32(t *testing.T) {
 	buff := bytes.NewBuffer([]byte{})
 	_AppendInt32(buff, int32(-1))
-	if !bytes.Equal(strings.Bytes("\xff\xff\xff\xff"), buff.Bytes()) {
+	if !bytes.Equal([]byte("\xff\xff\xff\xff"), buff.Bytes()) {
 		t.Error("#1 Failed")
 	}
 }
@@ -110,7 +107,7 @@ func TestAppendArray(t *testing.T) {
 		})
 
 	if teststr != string(buff.Bytes()) {
-		t.Error("#1 Failed\n", buff.Bytes(), strings.Bytes(teststr))
+		t.Error("#1 Failed\n", buff.Bytes(), []byte(teststr))
 	}
 }
 
@@ -119,49 +116,49 @@ func TestAppendValue(t *testing.T) {
 
 	_AppendValue(buff, "s", "string")
 	_AppendValue(buff, "s", "test2")
-	if !bytes.Equal(strings.Bytes("\x06\x00\x00\x00string\x00\x00\x05\x00\x00\x00test2\x00"), buff.Bytes()) {
+	if !bytes.Equal([]byte("\x06\x00\x00\x00string\x00\x00\x05\x00\x00\x00test2\x00"), buff.Bytes()) {
 		t.Error("#1 Failed")
 	}
 	buff.Reset()
-	vec := new(vector.Vector)
-	vec.Push([]interface{}{"test1", uint32(1)})
-	vec.Push([]interface{}{"test2", uint32(2)})
-	vec.Push([]interface{}{"test3", uint32(3)})
-	_AppendValue(buff, "a(su)", vec)
-	if !bytes.Equal(strings.Bytes("\x34\x00\x00\x00\x00\x00\x00\x00\x05\x00\x00\x00test1\x00\x00\x00\x01\x00\x00\x00\x05\x00\x00\x00test2\x00\x00\x00\x02\x00\x00\x00\x05\x00\x00\x00test3\x00\x00\x00\x03\x00\x00\x00"), buff.Bytes()) {
+	slice := make([]interface{}, 0)
+	slice = append(slice, []interface{}{"test1", uint32(1)})
+	slice = append(slice, []interface{}{"test2", uint32(2)})
+	slice = append(slice, []interface{}{"test3", uint32(3)})
+	_AppendValue(buff, "a(su)", slice)
+	if !bytes.Equal([]byte("\x34\x00\x00\x00\x00\x00\x00\x00\x05\x00\x00\x00test1\x00\x00\x00\x01\x00\x00\x00\x05\x00\x00\x00test2\x00\x00\x00\x02\x00\x00\x00\x05\x00\x00\x00test3\x00\x00\x00\x03\x00\x00\x00"), buff.Bytes()) {
 		t.Error("#2 Failed", buff.Bytes())
 	}
 }
 
 func TestGetByte(t *testing.T) {
-	if b, _ := _GetByte(strings.Bytes("\x00\x11"), 1); b != 0x11 {
+	if b, _ := _GetByte([]byte("\x00\x11"), 1); b != 0x11 {
 		t.Errorf("#1 Failed 0x%X != 0x11", b)
 	}
-	if _, e := _GetByte(strings.Bytes("\x00\x11"), 2); e == nil {
+	if _, e := _GetByte([]byte("\x00\x11"), 2); e == nil {
 		t.Errorf("#2 Failed")
 	}
 }
 
 func TestGetBoolean(t *testing.T) {
-	b, e := _GetBoolean(strings.Bytes("\x01\x00\x00\x00"), 0)
+	b, e := _GetBoolean([]byte("\x01\x00\x00\x00"), 0)
 	if e != nil {
 		t.Error("#1-1 Failed")
 	}
 	if true != b {
 		t.Error("#1-2 Failed")
 	}
-	_, e = _GetBoolean(strings.Bytes("\x01\x00\x00\x00"), 1)
+	_, e = _GetBoolean([]byte("\x01\x00\x00\x00"), 1)
 	if e == nil {
 		t.Error("#2 Failed")
 	}
 }
 
 func TestGetString(t *testing.T) {
-	s, e := _GetString(strings.Bytes("\x00\x00test"), 2, 4)
+	s, e := _GetString([]byte("\x00\x00test"), 2, 4)
 	if e != nil || s != "test" {
 		t.Error("#1 Failed")
 	}
-	s, e = _GetString(strings.Bytes("1234"), 3, 1)
+	s, e = _GetString([]byte("1234"), 3, 1)
 	if e != nil || s != "4" {
 		t.Error("#2 Failed")
 	}
@@ -169,7 +166,7 @@ func TestGetString(t *testing.T) {
 
 func TestGetStructSig(t *testing.T) {
 	var str string
-	var e os.Error
+	var e error
 	str, _ = _GetStructSig("(yyy)(yyy)", 0)
 	if "yyy" != str {
 		t.Error("#1 Failed:", str)
@@ -215,75 +212,77 @@ func TestGetSigBlock(t *testing.T) {
 
 }
 
-// vecRef([1,2,3], 1) => 2
-// vecRef([[1,2],3], 0, 1) => 2
-func vecRef(v *vector.Vector, args ...) interface{} {
-	a := reflect.NewValue(args).(*reflect.StructValue)
-	no := a.NumField()
-	pos := a.Field(0).Interface().(int)
-	ret := v.At(pos)
-	for i := 1; i < no; i++ {
-		pos = a.Field(i).Interface().(int)
-		ret = ret.(*vector.Vector).At(pos)
+// sliceRef([1,2,3], 1) => 2
+// sliceRef([[1,2],3], 0, 1) => 2
+func sliceRef(s []interface{}, arg1 int, args ...int) interface{} {
+	ret := s[arg1]
+
+	if len(args) > 0 {
+		ret1 := ret.([]interface{})
+		i := 0
+		for ; i < len(args)-1; i++ {
+			ret1 = ret1[args[i]].([]interface{})	
+		}
+		return ret1[args[i]]
 	}
 	return ret
 }
 
 func TestParse(t *testing.T) {
-	ret, _, _ := Parse(strings.Bytes("\x01\x02"), "y", 0)
-	if !reflect.DeepEqual([]interface{}{byte(1)}, ret.Data()) {
-		t.Error("#1 Failed:", ret.Data())
+	ret, _, _ := Parse([]byte("\x01\x02"), "y", 0)
+	if !reflect.DeepEqual([]interface{}{byte(1)}, ret) {
+		t.Error("#1 Failed:", ret)
 	}
 
-	ret, _, _ = Parse(strings.Bytes("\x03\x00\x00\x00\x04\x00\x00\x00test\x00\x04"), "ysy", 0)
-	if !reflect.DeepEqual([]interface{}{byte(3), "test", byte(4)}, ret.Data()) {
-		t.Error("#1 Failed:", ret.Data())
+	ret, _, _ = Parse([]byte("\x03\x00\x00\x00\x04\x00\x00\x00test\x00\x04"), "ysy", 0)
+	if !reflect.DeepEqual([]interface{}{byte(3), "test", byte(4)}, ret) {
+		t.Error("#1 Failed:", ret)
 	}
 
-	ret, _, _ = Parse(strings.Bytes("\x22\x00\x00\x00\x04\x00\x00\x00test\x00\x00\x00\x00\x05\x00\x00\x00test2\x00\x00\x00\x05\x00\x00\x00test3\x00\x01"), "asy", 0)
+	ret, _, _ = Parse([]byte("\x22\x00\x00\x00\x04\x00\x00\x00test\x00\x00\x00\x00\x05\x00\x00\x00test2\x00\x00\x00\x05\x00\x00\x00test3\x00\x01"), "asy", 0)
 	//	if "test" != ret.At(0).(*vector.Vector).At(0).(string) { t.Error("#3-1 Failed:")}
-	if "test" != vecRef(ret, 0, 0).(string) {
+	if "test" != sliceRef(ret, 0, 0).(string) {
 		t.Error("#3-1 Failed:")
 	}
-	if "test2" != vecRef(ret, 0, 1).(string) {
+	if "test2" != sliceRef(ret, 0, 1).(string) {
 		t.Error("#3-2 Failed:")
 	}
-	if "test3" != vecRef(ret, 0, 2).(string) {
+	if "test3" != sliceRef(ret, 0, 2).(string) {
 		t.Error("#3-3 Failed:")
 	}
-	if byte(1) != vecRef(ret, 1).(byte) {
+	if byte(1) != sliceRef(ret, 1).(byte) {
 		t.Error("#3-4 Failed:")
 	}
 
-	ret, _, e := Parse(strings.Bytes("\x22\x00\x00\x00\x00\x00\x00\x00\x01\x00\x00\x00\x04\x00\x00\x00true\x00\x00\x00\x00\x00\x00\x00\x00\x05\x00\x00\x00false\x00"), "a(bs)", 0)
+	ret, _, e := Parse([]byte("\x22\x00\x00\x00\x00\x00\x00\x00\x01\x00\x00\x00\x04\x00\x00\x00true\x00\x00\x00\x00\x00\x00\x00\x00\x05\x00\x00\x00false\x00"), "a(bs)", 0)
 	if e != nil {
-		t.Error(e.String())
+		t.Error(e.Error())
 	}
-	if true != vecRef(ret, 0, 0, 0).(bool) {
+	if true != sliceRef(ret, 0, 0, 0).(bool) {
 		t.Error("#4-1 Failed:")
 	}
-	if "true" != vecRef(ret, 0, 0, 1).(string) {
-		t.Error("#4-2 Failed:", vecRef(ret, 0, 0, 1).(string))
+	if "true" != sliceRef(ret, 0, 0, 1).(string) {
+		t.Error("#4-2 Failed:", sliceRef(ret, 0, 0, 1).(string))
 	}
-	if false != vecRef(ret, 0, 1, 0).(bool) {
+	if false != sliceRef(ret, 0, 1, 0).(bool) {
 		t.Error("#4-3 Failed:")
 	}
-	if "false" != vecRef(ret, 0, 1, 1).(string) {
+	if "false" != sliceRef(ret, 0, 1, 1).(string) {
 		t.Error("#4-4 Failed:")
 	}
 
-	ret, _, _ = Parse(strings.Bytes("l\x00\x00\x00\x00\x01\x00\x00test"), "yu", 0)
-	if 'l' != vecRef(ret, 0).(byte) {
+	ret, _, _ = Parse([]byte("l\x00\x00\x00\x00\x01\x00\x00test"), "yu", 0)
+	if 'l' != sliceRef(ret, 0).(byte) {
 		t.Error("#5-1 Failed:")
 	}
-	if 0x100 != vecRef(ret, 1).(uint32) {
+	if 0x100 != sliceRef(ret, 1).(uint32) {
 		t.Error("#5-2 Failed:")
 	}
 }
 
 func TestGetVariant(t *testing.T) {
-	val, index, _ := _GetVariant(strings.Bytes("\x00\x00\x01s\x00\x00\x00\x00\x04\x00\x00\x00test\x00"), 2)
-	str, ok := val.At(0).(string)
+	val, index, _ := _GetVariant([]byte("\x00\x00\x01s\x00\x00\x00\x00\x04\x00\x00\x00test\x00"), 2)
+	str, ok := val[0].(string)
 	if !ok {
 		t.Error("#1-1 Failed")
 	}
@@ -296,35 +295,35 @@ func TestGetVariant(t *testing.T) {
 }
 
 func TestParseVariant(t *testing.T) {
-	vec, _, e := Parse(strings.Bytes("\x01s\x00\x00\x04\x00\x00\x00test\x00\x01y\x00\x03\x01u\x00\x04\x00\x00\x00"), "vvv", 0)
+	vec, _, e := Parse([]byte("\x01s\x00\x00\x04\x00\x00\x00test\x00\x01y\x00\x03\x01u\x00\x04\x00\x00\x00"), "vvv", 0)
 	if nil != e {
 		t.Error("#1 Failed")
 	}
-	if "test" != vec.At(0).(string) {
+	if "test" != vec[0].(string) {
 		t.Error("#2 Failed")
 	}
-	if 3 != vec.At(1).(byte) {
+	if 3 != vec[1].(byte) {
 		t.Error("#3 Failed")
 	}
-	if 4 != vec.At(2).(uint32) {
-		t.Error("#4 Failed", vec.At(2).(uint32))
+	if 4 != vec[2].(uint32) {
+		t.Error("#4 Failed", vec[2].(uint32))
 	}
 }
 
 func TestParseNumber(t *testing.T) {
-	vec, _, e := Parse(strings.Bytes("\x04\x00\x00\x00"), "u", 0)
+	vec, _, e := Parse([]byte("\x04\x00\x00\x00"), "u", 0)
 	if nil != e {
 		t.Error("#1 Failed")
 	}
-	if uint32(4) != vecRef(vec, 0).(uint32) {
-		t.Error("#1 Failed", vecRef(vec, 0).(uint32))
+	if uint32(4) != sliceRef(vec, 0).(uint32) {
+		t.Error("#1 Failed", sliceRef(vec, 0).(uint32))
 	}
 }
 
 func TestGetUint32(t *testing.T) {
-	u, e := _GetUint32(strings.Bytes("\x04\x00\x00\x00"), 0)
+	u, e := _GetUint32([]byte("\x04\x00\x00\x00"), 0)
 	if e != nil {
-		t.Error("Failed", e.String())
+		t.Error("Failed", e.Error())
 	}
 	if uint32(4) != u {
 		t.Error("#1 Failed", u)
@@ -332,7 +331,7 @@ func TestGetUint32(t *testing.T) {
 }
 
 func TestGetInt32(t *testing.T) {
-	i, e := _GetInt32(strings.Bytes("\x04\x00\x00\x00"), 0)
+	i, e := _GetInt32([]byte("\x04\x00\x00\x00"), 0)
 	if e != nil {
 		t.Error("Failed")
 	}
