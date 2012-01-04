@@ -1,6 +1,8 @@
 package dbus
 
-import "github.com/kr/pretty.go"
+import "reflect"
+import "fmt"
+import "strings"
 
 var typeMap = map[MessageType]string{
 	INVALID:       "invalid",
@@ -18,7 +20,18 @@ type MatchRule struct {
 }
 
 func (p *MatchRule) _ToString() string {
-	return pretty.Sprintf("%# v", p)
+	strslice := []string{}
+
+	v := reflect.Indirect(reflect.ValueOf(p))
+	t := v.Type()
+	for i:=0; i<v.NumField(); i++{
+		str, ok := v.Field(i).Interface().(string)
+		if ok && "" != str{
+			strslice = append(strslice, (fmt.Sprintf("%s='%s'", strings.ToLower(t.Field(i).Name), str)))
+		}	
+	}
+	
+	return strings.Join(strslice, ",")
 }
 
 func (p *MatchRule) _Match(msg *Message) bool {
