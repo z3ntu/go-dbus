@@ -35,7 +35,7 @@ type interfaceData struct {
 }
 
 type introspect struct {
-	//Name      string "attr"
+	Name      string `xml:"attr"`
 	Interface []interfaceData
 	Node      []*introspect
 }
