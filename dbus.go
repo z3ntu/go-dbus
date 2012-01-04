@@ -1,13 +1,13 @@
 package dbus
 
 import (
-	"net"
-	"regexp"
+	"bytes"
 	"errors"
 	"fmt"
-	"bytes"
-	"os"
 	"github.com/kr/pretty.go"
+	"net"
+	"os"
+	"regexp"
 )
 
 const dbusXMLIntro = `
@@ -89,8 +89,8 @@ const dbusXMLIntro = `
   </interface>
 </node>`
 
-type signalHandler struct{
-	mr MatchRule
+type signalHandler struct {
+	mr   MatchRule
 	proc func(*Message)
 }
 
@@ -117,7 +117,7 @@ type Interface struct {
 	intro InterfaceData
 }
 
-func NewSessionBus() (*Connection, error){
+func NewSessionBus() (*Connection, error) {
 	bus := new(Connection)
 	bus.path = os.Getenv("DBUS_SESSION_BUS_ADDRESS")
 
@@ -126,33 +126,32 @@ func NewSessionBus() (*Connection, error){
 	m := re.FindAllStringSubmatch(bus.path, -1)
 	if nil != m {
 		abPath := m[0][1] // get regexp 1st group
-		addr, err := net.ResolveUnixAddr("unix", "\x00"+abPath)
+		addr, err := net.ResolveUnixAddr("unix", "@"+abPath)
 		if err != nil {
 			return nil, err
 		}
-		fmt.Println(addr.String())
 		conn, err := net.DialUnix("unix", nil, addr)
-		if err != nil{
+		if err != nil {
 			return nil, err
 		}
 		bus.conn = conn
-		return bus,nil
+		return bus, nil
 	}
 
 	return nil, errors.New("NewSessionBus Failed")
 }
 
-func NewSystemBus() (*Connection, error){
+func NewSystemBus() (*Connection, error) {
 	bus := new(Connection)
 	bus.path = "unix:path=/var/run/dbus/system_bus_socket"
 
 	addr, _ := net.ResolveUnixAddr("unix", "/var/run/dbus/system_bus_socket")
 	conn, err := net.DialUnix("unix", nil, addr)
-	if err != nil{
+	if err != nil {
 		return nil, err
 	}
 	bus.conn = conn
-	return bus,nil
+	return bus, nil
 }
 
 func (p *Connection) Initialize() error {
@@ -160,7 +159,10 @@ func (p *Connection) Initialize() error {
 	p.signalMatchRules = make([]signalHandler, 0)
 	p.proxy = p._GetProxy()
 	p.buffer = bytes.NewBuffer([]byte{})
-	p._Auth()
+	err := p._Auth()
+	if err != nil {
+		return err
+	}
 	go p._RunLoop()
 	p._SendHello()
 	return nil
@@ -207,8 +209,8 @@ func (p *Connection) _MessageDispatch(msg *Message) {
 			replyFunc(msg)
 			delete(p.methodCallReplies, rs)
 		}
-  case SIGNAL:
-		for _,handler := range p.signalMatchRules {
+	case SIGNAL:
+		for _, handler := range p.signalMatchRules {
 			if handler.mr._Match(msg) {
 				handler.proc(msg)
 			}
@@ -300,7 +302,7 @@ func (p *Connection) _GetProxy() *Interface {
 	obj := new(Object)
 	obj.path = "/org/freedesktop/DBus"
 	obj.dest = "org.freedesktop.DBus"
-	obj.intro,_ = NewIntrospect(dbusXMLIntro)
+	obj.intro, _ = NewIntrospect(dbusXMLIntro)
 
 	iface := new(Interface)
 	iface.obj = obj
@@ -311,7 +313,6 @@ func (p *Connection) _GetProxy() *Interface {
 }
 
 func (p *Connection) CallMethod(iface *Interface, name string, args ...interface{}) ([]interface{}, error) {
-
 	method := iface.intro.GetMethodData(name)
 	if nil == method {
 		return nil, errors.New("Invalid Method")
@@ -325,13 +326,16 @@ func (p *Connection) CallMethod(iface *Interface, name string, args ...interface
 	msg.Dest = iface.obj.dest
 	msg.Member = name
 	msg.Sig = method.GetInSignature()
-	msg.Params = args[:]
+	if len(args) > 0 {
+		msg.Params = args[:]
+	}
 
 	var ret []interface{}
-	p._SendSync(msg, func(reply *Message) { 
-		ret = reply.Params})
+	p._SendSync(msg, func(reply *Message) {
+		ret = reply.Params
+	})
 
-	return ret,nil
+	return ret, nil
 }
 
 func (p *Connection) EmitSignal(iface *Interface, name string, args ...interface{}) error {
@@ -352,12 +356,12 @@ func (p *Connection) EmitSignal(iface *Interface, name string, args ...interface
 	msg.Params = args[:]
 
 	buff, _ := msg._Marshal()
-	_,err := p.conn.Write(buff)
+	_, err := p.conn.Write(buff)
 
 	return err
 }
 
-func(p *Connection) GetObject(dest string, path string) *Object{
+func (p *Connection) GetObject(dest string, path string) *Object {
 
 	obj := new(Object)
 	obj.path = path
@@ -367,7 +371,7 @@ func(p *Connection) GetObject(dest string, path string) *Object{
 	return obj
 }
 
-func(p *Connection) AddSignalHandler(mr *MatchRule, proc func(*Message)) {
+func (p *Connection) AddSignalHandler(mr *MatchRule, proc func(*Message)) {
 	p.signalMatchRules = append(p.signalMatchRules, signalHandler{*mr, proc})
 	p.CallMethod(p.proxy, "AddMatch", mr._ToString())
 }

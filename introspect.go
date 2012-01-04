@@ -7,35 +7,35 @@ import (
 )
 
 type annotationData struct {
-	Name  string "attr"
-	Value string "attr"
+	Name  string `xml:"attr"`
+	Value string `xml:"attr"`
 }
 
 type argData struct {
-	Name      string "attr"
-	Type      string "attr"
-	Direction string "attr"
+	Name      string `xml:"attr"`
+	Type      string `xml:"attr"`
+	Direction string `xml:"attr"`
 }
 
 type methodData struct {
-	Name       string "attr"
+	Name       string `xml:"attr"`
 	Arg        []argData
 	Annotation annotationData
 }
 
 type signalData struct {
-	Name string "attr"
+	Name string `xml:"attr"`
 	Arg  []argData
 }
 
 type interfaceData struct {
-	Name   string "attr"
+	Name   string `xml:"attr"`
 	Method []methodData
 	Signal []signalData
 }
 
 type introspect struct {
-	Name      string "attr"
+	//Name      string "attr"
 	Interface []interfaceData
 	Node      []*introspect
 }
@@ -62,7 +62,7 @@ type SignalData interface {
 
 func NewIntrospect(xmlIntro string) (Introspect, error) {
 	intro := new(introspect)
-	buff := bytes.NewBuffer([]byte(xmlIntro))
+	buff := bytes.NewBufferString(xmlIntro)
 	err := xml.Unmarshal(buff, intro)
 	if err != nil {
 		return nil, err

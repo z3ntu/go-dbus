@@ -92,7 +92,7 @@ func _AppendValue(buff *bytes.Buffer, sig string, val interface{}) (sigOffset in
 		sigBlock, _ := _GetSigBlock(sig, 1)
 		_AppendArray(buff, 1, func(b *bytes.Buffer) {
 			if slice, ok := val.([]interface{}); ok && slice != nil {
-				for _,v := range slice {
+				for _, v := range slice {
 					_AppendValue(b, sigBlock, v)
 				}
 			}
@@ -318,7 +318,7 @@ func Parse(buff []byte, sig string, index int) (slice []interface{}, bufIdx int,
 				err = e
 				return
 			}
-            slice = append(slice, q)
+			slice = append(slice, q)
 			bufIdx += 2
 			sigIdx++
 
@@ -329,7 +329,7 @@ func Parse(buff []byte, sig string, index int) (slice []interface{}, bufIdx int,
 				err = e
 				return
 			}
-            slice = append(slice, u)
+			slice = append(slice, u)
 			bufIdx += 4
 			sigIdx++
 
@@ -347,7 +347,7 @@ func Parse(buff []byte, sig string, index int) (slice []interface{}, bufIdx int,
 				err = e
 				return
 			}
-            slice = append(slice, str)
+			slice = append(slice, str)
 			bufIdx += (4 + int(size) + 1)
 			sigIdx++
 
@@ -389,7 +389,7 @@ func Parse(buff []byte, sig string, index int) (slice []interface{}, bufIdx int,
 					err = e
 					return
 				}
-                tmpSlice = append(tmpSlice, retSlice...)
+				tmpSlice = append(tmpSlice, retSlice...)
 				aryIdx = retidx
 			}
 			bufIdx = aryIdx

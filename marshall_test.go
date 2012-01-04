@@ -1,9 +1,9 @@
 package dbus
 
 import (
-	"testing"
 	"bytes"
 	"reflect"
+	"testing"
 )
 
 func TestAlign(t *testing.T) {
@@ -221,7 +221,7 @@ func sliceRef(s []interface{}, arg1 int, args ...int) interface{} {
 		ret1 := ret.([]interface{})
 		i := 0
 		for ; i < len(args)-1; i++ {
-			ret1 = ret1[args[i]].([]interface{})	
+			ret1 = ret1[args[i]].([]interface{})
 		}
 		return ret1[args[i]]
 	}

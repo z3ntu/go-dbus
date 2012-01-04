@@ -74,9 +74,9 @@ func (p *Message) _BufferToMessage(buff []byte) (int, error) {
 	p.Protocol = int(slice[3].(byte))
 	p.bodyLength = int(slice[4].(uint32))
 	p.serial = int(slice[5].(uint32))
-    
+
 	if vec, ok := slice[6].([]interface{}); ok {
-		for _,v := range vec {
+		for _, v := range vec {
 			tmpSlice := v.([]interface{})
 			t := int(tmpSlice[0].(byte))
 			val := tmpSlice[1]

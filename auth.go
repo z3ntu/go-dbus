@@ -68,7 +68,7 @@ func (p *authState) _NextMessage() []string {
 	b := make([]byte, 4096)
 	p.conn.Read(b)
 	retstr := string(b)
-	return strings.SplitN(strings.TrimSpace(retstr), " ", 0)
+	return strings.SplitN(strings.Trim(retstr, " "), " ", -1)
 }
 
 func (p *authState) _Send(msg string) {
