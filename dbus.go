@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
-	"github.com/kr/pretty.go"
 	"net"
 	"os"
 	"regexp"
@@ -217,7 +216,6 @@ func (p *Connection) _MessageDispatch(msg *Message) {
 		}
 	case ERROR:
 		fmt.Println("ERROR")
-		pretty.Printf("%# v", msg)
 	}
 }
 
