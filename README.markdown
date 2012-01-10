@@ -12,6 +12,10 @@ Usage
 =====
 
 ```go
+// Issue OSD notifications according to the Desktop Notifications Specifications 1.1
+//      http://people.canonical.com/~agateau/notifications-1.1/spec/index.html
+package main
+
 import "github.com/norisatir/go-dbus"
 import "log"
 
@@ -35,15 +39,14 @@ func main() {
 
     // Introspect objects.
     out, err = conn.CallMethod(
-        conn.Interface(obj, "org.freedesktop.DBus.Introspectable"),
-        "Instrospect")
+        conn.Interface(obj, "org.freedesktop.DBus.Introspectable"), "Introspect")
     if err != nil {
         log.Fatal("Introspect error:", err)
     }
     var intro dbus.Introspect
-    intro, err := dbus.NewIntrospect(out[0])
+    intro, err = dbus.NewIntrospect(out[0].(string))
     method := intro.GetInterfaceData("org.freedesktop.Notifications").GetMethodData("Notify")
-    log.Printf("%s(%s) (%s)", method.GetName(), method.GetInSignature(), method.GetOutSigniture())
+    log.Printf("%s in:%s out:%s", method.GetName(), method.GetInSignature(), method.GetOutSignature())
 
     // Call object methods.
     out, err = conn.CallMethod(
@@ -54,7 +57,6 @@ func main() {
 		"dbus-tutorial", uint32(0), "",
         "dbus-tutorial", "You've been notified!",
 		[]interface{}{}, map[string]interface{}{}, int32(-1))
-    )
     if err != nil {
         log.Fatal("Notification error:", err)
     }
