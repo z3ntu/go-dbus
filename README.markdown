@@ -1,7 +1,7 @@
 Documentation
 =============
 
-Look at the API on [GoPkgDoc](gopkgdoc.appspot.com/pkg/github.com/norisatir/go-dbus).
+Look at the API on [GoPkgDoc](http://gopkgdoc.appspot.com/pkg/github.com/norisatir/go-dbus).
 
 Installation
 ============
