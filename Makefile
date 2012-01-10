@@ -4,7 +4,7 @@
 
 include $(GOROOT)/src/Make.inc
 
-TARG=dbus
+TARG=github.com/norisatir/go-dbus
 GOFILES=\
 	matchrule.go\
 	auth.go\
