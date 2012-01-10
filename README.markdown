@@ -12,7 +12,7 @@ Usage
 =====
 
 ```go
-// Issue OSD notifications according to the Desktop Notifications Specifications 1.1
+// Issue OSD notifications according to the Desktop Notifications Specification 1.1
 //      http://people.canonical.com/~agateau/notifications-1.1/spec/index.html
 package main
 
