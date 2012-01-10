@@ -14,6 +14,8 @@ Usage
 ```go
 // Issue OSD notifications according to the Desktop Notifications Specification 1.1
 //      http://people.canonical.com/~agateau/notifications-1.1/spec/index.html
+// See also
+//      https://wiki.ubuntu.com/NotifyOSD#org.freedesktop.Notifications.Notify
 package main
 
 import "github.com/norisatir/go-dbus"
