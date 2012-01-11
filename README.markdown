@@ -11,6 +11,33 @@ Installation
 Usage
 =====
 
+Methods
+-------
+
+Methods is obtained with
+
+    meth, err := conn.Object(dest, path).Interface(iface).Method(method)
+
+They are called with
+
+    out, err := conn.Call(meth)
+
+Signals
+-------
+
+Signals are obtained with
+
+    sig, err := conn.Object(dest, path).Interface(iface).Signal(signal)
+
+they are emitted with
+
+    err = conn.Emit(sig)
+
+**TODO** Add signal handling usage.
+
+An example
+----------
+
 ```go
 // Issue OSD notifications according to the Desktop Notifications Specification 1.1
 //      http://people.canonical.com/~agateau/notifications-1.1/spec/index.html
