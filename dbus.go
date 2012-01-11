@@ -122,6 +122,34 @@ type Interface struct {
 	intro InterfaceData
 }
 
+type Method struct {
+	iface *Interface
+	data MethodData
+}
+
+type Signal struct {
+	iface *Interface
+	data SignalData
+}
+
+// Retrieve a method by name.
+func (iface *Interface) Method(name string) (*Method, error) {
+	method := iface.intro.GetMethodData(name)
+	if nil == method {
+		return nil, errors.New("Invalid Method")
+	}
+	return &Method{iface, method}, nil
+}
+
+// Retrieve a signal by name.
+func (iface *Interface) Signal(name string) (*Signal, error) {
+	signal := iface.intro.GetSignalData(name)
+	if nil == signal {
+		return nil, errors.New("Invalid Signalx")
+	}
+	return &Signal{iface, signal}, nil
+}
+
 func Connect(busType StandardBus) (*Connection, error) {
 	var address string
 
@@ -325,20 +353,6 @@ func (p *Connection) _GetProxy() *Interface {
 	return iface
 }
 
-type Method struct {
-	iface *Interface
-	data MethodData
-}
-
-// Retrieve a method by name.
-func (iface *Interface) Method(name string) (*Method, error) {
-	method := iface.intro.GetMethodData(name)
-	if nil == method {
-		return nil, errors.New("Invalid Method")
-	}
-	return &Method{iface, method}, nil
-}
-
 // Call a method with the given arguments.
 func (p *Connection) Call(method *Method, args ...interface{}) ([]interface{}, error) {
 	iface := method.iface
@@ -360,20 +374,6 @@ func (p *Connection) Call(method *Method, args ...interface{}) ([]interface{}, e
 	})
 
 	return ret, nil
-}
-
-type Signal struct {
-	iface *Interface
-	data SignalData
-}
-
-// Retrieve a signal by name.
-func (iface *Interface) Signal(name string) (*Signal, error) {
-	signal := iface.intro.GetSignalData(name)
-	if nil == signal {
-		return nil, errors.New("Invalid Signalx")
-	}
-	return &Signal{iface, signal}, nil
 }
 
 // Emit a signal with the given arguments.
