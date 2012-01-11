@@ -7,8 +7,8 @@ import (
 
 type callTest struct {
 	dest, path, iface, method string
-	args []interface{}
-	validate func([]interface{}) error
+	args                      []interface{}
+	validate                  func([]interface{}) error
 }
 
 var callTests = []callTest{
@@ -24,7 +24,7 @@ var callTests = []callTest{
 		}},
 }
 
-func (test callTest) Call(c *Connection) (error) {
+func (test callTest) Call(c *Connection) error {
 	method, err := c.Object(test.dest, test.path).Interface(test.iface).Method(test.method)
 	if err != nil {
 		return err
