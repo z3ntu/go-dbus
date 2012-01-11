@@ -24,21 +24,8 @@ var callTests = []callTest{
 		}},
 }
 
-func (test callTest) Object(c *Connection) *Object {
-	return c.Object(test.dest, test.path)
-}
-func (test callTest) Interface(c *Connection) *Interface {
-	return test.Object(c).Interface(test.iface)
-}
-func (test callTest) Method(c *Connection) (*Method, error) {
-	method, err := test.Interface(c).Method(test.method)
-	if err != nil {
-		err = fmt.Errorf("failed Interface.Method: %v", err)
-	}
-	return method, err
-}
 func (test callTest) Call(c *Connection) (error) {
-	method, err := test.Method(c)
+	method, err := c.Object(test.dest, test.path).Interface(test.iface).Method(test.method)
 	if err != nil {
 		return err
 	}
