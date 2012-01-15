@@ -195,28 +195,23 @@ func Connect(busType StandardBus) (*Connection, error) {
 		return nil, err
 	}
 
+	bus.methodCallReplies = make(map[uint32]func(*Message))
+	bus.signalMatchRules = make([]signalHandler, 0)
+	bus.proxy = bus._GetProxy()
+	bus.buffer = bytes.NewBuffer([]byte{})
 	return bus, nil
 }
 
-func (p *Connection) Initialize() error {
-	p.methodCallReplies = make(map[uint32]func(*Message))
-	p.signalMatchRules = make([]signalHandler, 0)
-	p.proxy = p._GetProxy()
-	p.buffer = bytes.NewBuffer([]byte{})
-	err := p._Auth()
-	if err != nil {
+func (p *Connection) Authenticate() error {
+	auth := new(authState)
+	auth.AddAuthenticator(new(AuthExternal))
+
+	if err := auth.Authenticate(p.conn); err != nil {
 		return err
 	}
 	go p._RunLoop()
 	p._SendHello()
 	return nil
-}
-
-func (p *Connection) _Auth() error {
-	auth := new(authState)
-	auth.AddAuthenticator(new(AuthExternal))
-
-	return auth.Authenticate(p.conn)
 }
 
 func (p *Connection) _MessageReceiver(msgChan chan *Message) {
