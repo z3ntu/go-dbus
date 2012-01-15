@@ -30,8 +30,8 @@ func (t MessageType) String() string { return messageTypeString[t] }
 type MessageFlag uint8
 
 const (
-	NoReplyExpected MessageFlag = 1 << iota
-	NoAutoStart
+	FlagNoReplyExpected MessageFlag = 1 << iota
+	FlagNoAutoStart
 )
 
 type Message struct {
