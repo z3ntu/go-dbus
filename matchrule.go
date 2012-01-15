@@ -27,7 +27,7 @@ func (p *MatchRule) String() string {
 }
 
 func (p *MatchRule) _Match(msg *Message) bool {
-	if p.Type != msg.Type {
+	if p.Type != TypeInvalid && p.Type != msg.Type {
 		return false
 	}
 	if p.Interface != "" && p.Interface != msg.Iface {
