@@ -62,6 +62,7 @@ func _GetNewSerial() int {
 	return serial
 }
 
+// Create a new message with Flags == 0 and Protocol == 1.
 func NewMessage() *Message {
 	msg := new(Message)
 
