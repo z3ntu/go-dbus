@@ -204,9 +204,8 @@ func Connect(busType StandardBus) (*Connection, error) {
 
 func (p *Connection) Authenticate() error {
 	auth := new(authState)
-	auth.AddAuthenticator(new(AuthExternal))
 
-	if err := auth.Authenticate(p.conn); err != nil {
+	if err := auth.Authenticate(p.conn, new(AuthExternal)); err != nil {
 		return err
 	}
 	go p._RunLoop()

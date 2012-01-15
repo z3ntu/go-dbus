@@ -1,7 +1,6 @@
 package dbus
 
 import (
-	"container/list"
 	"errors"
 	"fmt"
 	"net"
@@ -42,26 +41,9 @@ const (
 )
 
 type authState struct {
-	status   authStatus
-	auth     Authenticator
-	authList list.List
-	conn     net.Conn
-}
-
-func (p *authState) AddAuthenticator(auth Authenticator) {
-	p.authList.PushBack(auth)
-}
-
-func (p *authState) _NextAuthenticator() {
-	if p.authList.Len() == 0 {
-		p.auth = nil
-		return
-	}
-
-	p.auth, _ = p.authList.Front().Value.(Authenticator)
-	p.authList.Remove(p.authList.Front())
-	msg := strings.Join([]string{"AUTH", p.auth.Mechanism(), p.auth.Authenticate()}, " ")
-	p._Send(msg)
+	status authStatus
+	auth   Authenticator
+	conn   net.Conn
 }
 
 func (p *authState) _NextMessage() []string {
@@ -75,10 +57,12 @@ func (p *authState) _Send(msg string) {
 	p.conn.Write([]byte(msg + "\r\n"))
 }
 
-func (p *authState) Authenticate(conn net.Conn) error {
+func (p *authState) Authenticate(conn net.Conn, mech Authenticator) error {
+	p.auth = mech
 	p.conn = conn
-	p._NextAuthenticator()
 	p.status = statusStarting
+	p._Send(strings.Join([]string{"AUTH", p.auth.Mechanism(), p.auth.Authenticate()}, " "))
+
 	for p.status != statusAuthenticated {
 		if nil == p.auth {
 			return ErrAuthFailed
@@ -119,8 +103,7 @@ func (p *authState) _WaitingForData(msg []string) error {
 	case "DATA":
 		return ErrAuthUnknownCommand
 	case "REJECTED":
-		p._NextAuthenticator()
-		p.status = statusWaitingForData
+		return ErrAuthFailed
 	case "OK":
 		p._Send("BEGIN")
 		p.status = statusAuthenticated
@@ -137,8 +120,7 @@ func (p *authState) _WaitingForOK(msg []string) error {
 		p._Send("BEGIN")
 		p.status = statusAuthenticated
 	case "REJECT":
-		p._NextAuthenticator()
-		p.status = statusWaitingForData
+		return ErrAuthFailed
 	case "DATA", "ERROR":
 		p._Send("CANCEL")
 		p.status = statusWaitingForReject
@@ -153,8 +135,7 @@ func (p *authState) _WaitingForOK(msg []string) error {
 func (p *authState) _WaitingForReject(msg []string) error {
 	switch msg[0] {
 	case "REJECT":
-		p._NextAuthenticator()
-		p.status = statusWaitingForOk
+		return ErrAuthFailed
 	default:
 		return ErrAuthUnknownCommand
 	}
