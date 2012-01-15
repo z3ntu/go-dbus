@@ -10,7 +10,7 @@ import (
 type MessageType int
 
 const (
-	TypeInvalid = iota
+	TypeInvalid MessageType = iota
 	TypeMethodCall
 	TypeMethodReturn
 	TypeError
