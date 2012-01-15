@@ -124,12 +124,12 @@ type Interface struct {
 
 type Method struct {
 	iface *Interface
-	data MethodData
+	data  MethodData
 }
 
 type Signal struct {
 	iface *Interface
-	data SignalData
+	data  SignalData
 }
 
 // Retrieve a method by name.
@@ -188,6 +188,10 @@ func Connect(busType StandardBus) (*Connection, error) {
 
 	var err error
 	if bus.conn, err = net.Dial(transport, address); err != nil {
+		return nil, err
+	}
+
+	if _, err = bus.conn.Write([]byte{0}); err != nil {
 		return nil, err
 	}
 

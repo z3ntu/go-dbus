@@ -77,7 +77,6 @@ func (p *authState) _Send(msg string) {
 
 func (p *authState) Authenticate(conn net.Conn) error {
 	p.conn = conn
-	p.conn.Write([]byte("\x00"))
 	p._NextAuthenticator()
 	p.status = statusStarting
 	for p.status != statusAuthenticated {
