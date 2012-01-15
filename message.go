@@ -7,7 +7,7 @@ import (
 
 // See the D-Bus tutorial for information about message types.
 //		http://dbus.freedesktop.org/doc/dbus-tutorial.html#messages
-type MessageType int
+type MessageType uint8
 
 const (
 	TypeInvalid MessageType = iota
@@ -27,11 +27,11 @@ var messageTypeString = map[MessageType]string{
 
 func (t MessageType) String() string { return messageTypeString[t] }
 
-type MessageFlag int
+type MessageFlag uint8
 
 const (
-	NO_REPLY_EXPECTED = 0x1
-	NO_AUTO_START     = 0x2
+	NoReplyExpected MessageFlag = 1 << iota
+	NoAutoStart
 )
 
 type Message struct {
