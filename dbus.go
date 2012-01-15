@@ -203,7 +203,7 @@ func Connect(busType StandardBus) (*Connection, error) {
 }
 
 func (p *Connection) Authenticate() error {
-	if err := p._Authenticate(new(AuthExternal)); err != nil {
+	if err := p._Authenticate(new(AuthDbusCookieSha1)); err != nil {
 		return err
 	}
 	go p._RunLoop()
