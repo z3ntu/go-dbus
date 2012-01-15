@@ -8,12 +8,22 @@ import (
 type MessageType int
 
 const (
-	INVALID       = 0
-	METHOD_CALL   = 1
-	METHOD_RETURN = 2
-	ERROR         = 3
-	SIGNAL        = 4
+	TypeInvalid = iota
+	TypeMethodCall
+	TypeMethodReturn
+	TypeError
+	TypeSignal
 )
+
+var messageTypeString = map[MessageType]string{
+	TypeInvalid:      "invalid",
+	TypeMethodCall:   "method_call",
+	TypeMethodReturn: "method_return",
+	TypeSignal:       "signal",
+	TypeError:        "error",
+}
+
+func (t MessageType) String() string { return messageTypeString[t] }
 
 type MessageFlag int
 
