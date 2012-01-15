@@ -5,6 +5,8 @@ import (
 	"sync"
 )
 
+// See the D-Bus tutorial for information about message types.
+//		http://dbus.freedesktop.org/doc/dbus-tutorial.html#messages
 type MessageType int
 
 const (
