@@ -60,8 +60,8 @@ func main() {
     if conn, err = dbus.Connect(dbus.SessionBus); err != nil {
         log.Fatal("Connection error:", err)
     }
-    if err = conn.Initialize(); err != nil {
-        log.Fatal("Initialization error:", err)
+    if err = conn.Authenticate(); err != nil {
+        log.Fatal("Authentication error:", err)
     }
 
     // Get objects.
