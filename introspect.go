@@ -7,37 +7,37 @@ import (
 )
 
 type annotationData struct {
-	Name  string `xml:"attr"`
-	Value string `xml:"attr"`
+	Name  string `xml:"name,attr"`
+	Value string `xml:"value,attr"`
 }
 
 type argData struct {
-	Name      string `xml:"attr"`
-	Type      string `xml:"attr"`
-	Direction string `xml:"attr"`
+	Name      string `xml:"name,attr"`
+	Type      string `xml:"type,attr"`
+	Direction string `xml:"direction,attr"`
 }
 
 type methodData struct {
-	Name       string `xml:"attr"`
-	Arg        []argData
-	Annotation annotationData
+	Name       string `xml:"name,attr"`
+	Arg        []argData `xml:"arg"`
+	Annotation annotationData `xml:"annotation"`
 }
 
 type signalData struct {
-	Name string `xml:"attr"`
-	Arg  []argData
+	Name string `xml:"name,attr"`
+	Arg  []argData `xml:"arg"`
 }
 
 type interfaceData struct {
-	Name   string `xml:"attr"`
-	Method []methodData
-	Signal []signalData
+	Name   string `xml:"name,attr"`
+	Method []methodData `xml:"method"`
+	Signal []signalData `xml:"signal"`
 }
 
 type introspect struct {
-	Name      string `xml:"attr"`
-	Interface []interfaceData
-	Node      []*introspect
+	Name      string `xml:"name,attr"`
+	Interface []interfaceData `xml:"interface"`
+	Node      []*Introspect `xml:"node"`
 }
 
 type Introspect interface {
