@@ -239,19 +239,19 @@ func (p *Connection) _MessageDispatch(msg *Message) {
 	}
 
 	switch msg.Type {
-	case METHOD_RETURN:
+	case TypeMethodReturn:
 		rs := msg.replySerial
 		if replyFunc, ok := p.methodCallReplies[rs]; ok {
 			replyFunc(msg)
 			delete(p.methodCallReplies, rs)
 		}
-	case SIGNAL:
+	case TypeSignal:
 		for _, handler := range p.signalMatchRules {
 			if handler.mr._Match(msg) {
 				handler.proc(msg)
 			}
 		}
-	case ERROR:
+	case TypeError:
 		fmt.Println("ERROR")
 	}
 }
@@ -296,7 +296,7 @@ func (p *Connection) _SendHello() error {
 
 func (p *Connection) _GetIntrospect(dest string, path string) Introspect {
 	msg := NewMessage()
-	msg.Type = METHOD_CALL
+	msg.Type = TypeMethodCall
 	msg.Path = path
 	msg.Dest = dest
 	msg.Iface = "org.freedesktop.DBus.Introspectable"
@@ -354,7 +354,7 @@ func (p *Connection) Call(method *Method, args ...interface{}) ([]interface{}, e
 	iface := method.iface
 	msg := NewMessage()
 
-	msg.Type = METHOD_CALL
+	msg.Type = TypeMethodCall
 	msg.Path = iface.obj.path
 	msg.Iface = iface.name
 	msg.Dest = iface.obj.dest
@@ -378,7 +378,7 @@ func (p *Connection) Emit(signal *Signal, args ...interface{}) error {
 
 	msg := NewMessage()
 
-	msg.Type = SIGNAL
+	msg.Type = TypeSignal
 	msg.Path = iface.obj.path
 	msg.Iface = iface.name
 	msg.Dest = iface.obj.dest
@@ -407,6 +407,6 @@ func (p *Connection) Object(dest string, path string) *Object {
 func (p *Connection) Handle(rule *MatchRule, handler func(*Message)) {
 	p.signalMatchRules = append(p.signalMatchRules, signalHandler{*rule, handler})
 	if method, err := p.proxy.Method("AddMatch"); err == nil {
-		p.Call(method, rule._ToString())
+		p.Call(method, rule.String())
 	}
 }
