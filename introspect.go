@@ -18,26 +18,26 @@ type argData struct {
 }
 
 type methodData struct {
-	Name       string `xml:"name,attr"`
-	Arg        []argData `xml:"arg"`
+	Name       string         `xml:"name,attr"`
+	Arg        []argData      `xml:"arg"`
 	Annotation annotationData `xml:"annotation"`
 }
 
 type signalData struct {
-	Name string `xml:"name,attr"`
+	Name string    `xml:"name,attr"`
 	Arg  []argData `xml:"arg"`
 }
 
 type interfaceData struct {
-	Name   string `xml:"name,attr"`
+	Name   string       `xml:"name,attr"`
 	Method []methodData `xml:"method"`
 	Signal []signalData `xml:"signal"`
 }
 
 type introspect struct {
-	Name      string `xml:"name,attr"`
+	Name      string          `xml:"name,attr"`
 	Interface []interfaceData `xml:"interface"`
-	Node      []*Introspect `xml:"node"`
+	Node      []*Introspect   `xml:"node"`
 }
 
 type Introspect interface {
