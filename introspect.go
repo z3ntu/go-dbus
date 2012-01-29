@@ -64,7 +64,7 @@ type SignalData interface {
 func NewIntrospect(xmlIntro string) (Introspect, error) {
 	intro := new(introspect)
 	buff := bytes.NewBufferString(xmlIntro)
-	err := xml.Unmarshal(buff, intro)
+	err := xml.Unmarshal(buff.Bytes(), intro)
 	if err != nil {
 		return nil, err
 	}
