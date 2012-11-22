@@ -8,9 +8,8 @@ import (
 	"reflect"
 )
 
-
 type encoder struct {
-	signature string
+	signature Signature
 	data bytes.Buffer
 	offset int
 }
@@ -30,70 +29,19 @@ func (self *encoder) Append(args ...interface{}) error {
 	return nil
 }
 
-func _getSignature(t reflect.Type) (string, error) {
-	switch t.Kind() {
-	case reflect.Uint8:
-		return "y", nil
-	case reflect.Bool:
-		return "b", nil
-	case reflect.Int16:
-		return "n", nil
-	case reflect.Uint16:
-		return "q", nil
-	case reflect.Int32:
-		return "i", nil
-	case reflect.Uint32:
-		return "u", nil
-	case reflect.Int64:
-		return "x", nil
-	case reflect.Uint64:
-		return "t", nil
-	case reflect.Float64:
-		return "d", nil
-	case reflect.String:
-		// XXX: have some way to detect ObjectPath (o) and Signature (g)
-		return "s", nil
-	case reflect.Array, reflect.Slice:
-		valueSig, err := _getSignature(t.Elem())
-		if err != nil {
-			return "", err
-		}
-		return "a" + valueSig, nil
-	case reflect.Map:
-		keySig, err := _getSignature(t.Key())
-		if err != nil {
-			return "", err
-		}
-		valueSig, err := _getSignature(t.Elem())
-		if err != nil {
-			return "", err
-		}
-		return "a{" + keySig + valueSig + "}", nil
-	case reflect.Struct:
-		sig := "("
-		for i := 0; i != t.NumField(); i++ {
-			fieldSig, err := _getSignature(t.Field(i).Type)
-			if err != nil {
-				return "", err
-			}
-			sig += fieldSig
-		}
-		sig += ")"
-		return sig, nil
-	case reflect.Ptr:
-		// dereference pointers
-		sig, err := _getSignature(t.Elem())
-		return sig, err
-	}
-	return "", errors.New("Can not determine signature for " + t.String())
-}
-
 func (self *encoder) appendValue(v reflect.Value) error {
-	signature, err := _getSignature(v.Type())
+	signature, err := getSignature(v.Type())
 	if err != nil {
 		return err
 	}
 	self.signature += signature
+
+	// Convert HasObjectPath values to ObjectPath strings
+	if v.Type().AssignableTo(typeHasObjectPath) {
+		path := v.Interface().(HasObjectPath).GetObjectPath()
+		v = reflect.ValueOf(path)
+	}
+
 	// We want pointer values here, rather than the pointers themselves.
 	for v.Kind() == reflect.Ptr {
 		v = v.Elem()
@@ -142,13 +90,17 @@ func (self *encoder) appendValue(v reflect.Value) error {
 		binary.Write(&self.data, binary.LittleEndian, float64(v.Float()))
 		return nil
 	case reflect.String:
-		self.align(4)
 		s := v.String()
-		binary.Write(&self.data, binary.LittleEndian, uint32(len(s)))
+		// Signatures only use a single byte for the length.
+		if v.Type() == typeSignature {
+			self.align(1)
+			self.data.WriteByte(byte(len(s)))
+		} else {
+			self.align(4)
+			binary.Write(&self.data, binary.LittleEndian, uint32(len(s)))
+		}
 		self.data.Write([]byte(s))
 		self.data.WriteByte(0)
-		// XXX: Should handle signatures here, which have
-		// slightly different encoding.
 		return nil
 	case reflect.Array, reflect.Slice:
 		// Marshal array contents to a separate buffer so we
@@ -185,16 +137,35 @@ func (self *encoder) appendValue(v reflect.Value) error {
 		self.data.Write(content.data.Bytes())
 		return nil
 	case reflect.Struct:
+		if v.Type() == typeVariant {
+			variant := v.Interface().(Variant)
+			variantSig, err := variant.GetVariantSignature()
+			if err != nil {
+				return err
+			}
+			// Save the signature, so we don't add the
+			// typecodes for the variant value to the
+			// signature.
+			savedSig := self.signature
+			if err := self.appendValue(reflect.ValueOf(variantSig)); err != nil {
+				return err
+			}
+			if err := self.appendValue(reflect.ValueOf(variant.Value)); err != nil {
+				return err
+			}
+			self.signature = savedSig
+			return nil
+		}
 		self.align(4)
 		// XXX: save and restore the signature, since we wrote
 		// out the entire struct signature previously.
-		saveSig := self.signature
+		savedSig := self.signature
 		for i := 0; i != v.NumField(); i++ {
 			if err := self.appendValue(v.Field(i)); err != nil {
 				return err
 			}
 		}
-		self.signature = saveSig
+		self.signature = savedSig
 		return nil
 	}
 	return errors.New("Could not marshal " + v.Type().String())
