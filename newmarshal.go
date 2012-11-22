@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/binary"
 	"errors"
+	"math"
 	"reflect"
 )
 
@@ -208,12 +209,16 @@ type decoder struct {
 	dataOffset, sigOffset int
 }
 
+var (
+	bufferOverrunError = errors.New("Buffer too small")
+	signatureOverrunError = errors.New("Signature too small"))
+
 func newDecoder(signature string, data []byte, order binary.ByteOrder) *decoder {
 	return &decoder{signature: signature, data: data, order: order}
 }
 
 func (self *decoder) align(alignment int) {
-	for self.dataOffset & alignment != 0 {
+	for self.dataOffset % alignment != 0 {
 		self.dataOffset += 1
 	}
 }
@@ -233,6 +238,306 @@ func (self *decoder) Decode(args ...interface{}) error {
 	return nil
 }
 
+func (self *decoder) readByte() (byte, error) {
+	if len(self.data) < self.dataOffset + 1 {
+		return 0, bufferOverrunError
+	}
+	value := self.data[self.dataOffset]
+	self.dataOffset += 1
+	return value, nil
+}
+
+func (self *decoder) readInt16() (int16, error) {
+	self.align(2)
+	if len(self.data) < self.dataOffset + 2 {
+		return 0, bufferOverrunError
+	}
+	value := int16(self.order.Uint16(self.data[self.dataOffset:]))
+	self.dataOffset += 2
+	return value, nil
+}
+
+func (self *decoder) readUint16() (uint16, error) {
+	self.align(2)
+	if len(self.data) < self.dataOffset + 2 {
+		return 0, bufferOverrunError
+	}
+	value := self.order.Uint16(self.data[self.dataOffset:])
+	self.dataOffset += 2
+	return value, nil
+}
+
+func (self *decoder) readInt32() (int32, error) {
+	self.align(4)
+	if len(self.data) < self.dataOffset + 4 {
+		return 0, bufferOverrunError
+	}
+	value := int32(self.order.Uint32(self.data[self.dataOffset:]))
+	self.dataOffset += 4
+	return value, nil
+}
+
+func (self *decoder) readUint32() (uint32, error) {
+	self.align(4)
+	if len(self.data) < self.dataOffset + 4 {
+		return 0, bufferOverrunError
+	}
+	value := self.order.Uint32(self.data[self.dataOffset:])
+	self.dataOffset += 4
+	return value, nil
+}
+
+func (self *decoder) readInt64() (int64, error) {
+	self.align(8)
+	if len(self.data) < self.dataOffset + 8 {
+		return 0, bufferOverrunError
+	}
+		value := int64(self.order.Uint64(self.data[self.dataOffset:]))
+	self.dataOffset += 8
+	return value, nil
+}
+
+func (self *decoder) readUint64() (uint64, error) {
+	self.align(8)
+	if len(self.data) < self.dataOffset + 8 {
+		return 0, bufferOverrunError
+	}
+	value := self.order.Uint64(self.data[self.dataOffset:])
+	self.dataOffset += 8
+	return value, nil
+}
+
+func (self *decoder) readFloat64() (float64, error) {
+	value, err := self.readUint64()
+	return math.Float64frombits(value), err
+}
+
+func (self *decoder) readString() (string, error) {
+	length, err := self.readUint32()
+	if err != nil {
+		return "", err
+	}
+	// One extra byte for null termination
+	if len(self.data) < self.dataOffset + int(length) + 1 {
+		return "", bufferOverrunError
+	}
+	value := string(self.data[self.dataOffset:self.dataOffset+int(length)])
+	self.dataOffset += int(length) + 1
+	return value, nil
+}
+
+func (self *decoder) readSignature() (string, error) {
+	length, err := self.readByte()
+	if err != nil {
+		return "", err
+	}
+	// One extra byte for null termination
+	if len(self.data) < self.dataOffset + int(length) + 1 {
+		return "", bufferOverrunError
+	}
+	value := string(self.data[self.dataOffset:self.dataOffset+int(length)])
+	self.dataOffset += int(length) + 1
+	return value, nil
+}
+
 func (self *decoder) decodeValue(v reflect.Value) error {
-	return nil
+	if len(self.signature) < self.sigOffset {
+		return signatureOverrunError
+	}
+	sigCode := self.signature[self.sigOffset]
+	self.sigOffset += 1
+	switch sigCode {
+	case 'y':
+		value, err := self.readByte()
+		if err != nil {
+			return err
+		}
+		switch v.Kind() {
+		case reflect.Uint8, reflect.Interface:
+			v.Set(reflect.ValueOf(value))
+			return nil
+		}
+	case 'b':
+		value, err := self.readUint32()
+		if err != nil {
+			return err
+		}
+		switch v.Kind() {
+		case reflect.Bool:
+			v.SetBool(value != 0)
+			return nil
+		case reflect.Interface:
+			v.Set(reflect.ValueOf(value != 0))
+			return nil
+		}
+	case 'n':
+		value, err := self.readInt16()
+		if err != nil {
+			return err
+		}
+		switch v.Kind() {
+		case reflect.Int16:
+			v.SetInt(int64(value))
+			return nil
+		case reflect.Interface:
+			v.Set(reflect.ValueOf(value))
+			return nil
+		}
+	case 'q':
+		value, err := self.readUint16()
+		if err != nil {
+			return err
+		}
+		switch v.Kind() {
+		case reflect.Uint16:
+			v.SetUint(uint64(value))
+			return nil
+		case reflect.Interface:
+			v.Set(reflect.ValueOf(value))
+			return nil
+		}
+	case 'i':
+		value, err := self.readInt32()
+		if err != nil {
+			return err
+		}
+		switch v.Kind() {
+		case reflect.Int32:
+			v.SetInt(int64(value))
+			return nil
+		case reflect.Interface:
+			v.Set(reflect.ValueOf(value))
+			return nil
+		}
+	case 'u':
+		value, err := self.readUint32()
+		if err != nil {
+			return err
+		}
+		switch v.Kind() {
+		case reflect.Uint32:
+			v.SetUint(uint64(value))
+			return nil
+		case reflect.Interface:
+			v.Set(reflect.ValueOf(value))
+			return nil
+		}
+	case 'x':
+		value, err := self.readInt64()
+		if err != nil {
+			return err
+		}
+		switch v.Kind() {
+		case reflect.Int64:
+			v.SetInt(int64(value))
+			return nil
+		case reflect.Interface:
+			v.Set(reflect.ValueOf(value))
+			return nil
+		}
+	case 't':
+		value, err := self.readUint64()
+		if err != nil {
+			return err
+		}
+		switch v.Kind() {
+		case reflect.Uint32:
+			v.SetUint(uint64(value))
+			return nil
+		case reflect.Interface:
+			v.Set(reflect.ValueOf(value))
+			return nil
+		}
+	case 'd':
+		value, err := self.readFloat64()
+		if err != nil {
+			return err
+		}
+		switch v.Kind() {
+		case reflect.Float64:
+			v.SetFloat(value)
+			return nil
+		case reflect.Interface:
+			v.Set(reflect.ValueOf(value))
+			return nil
+		}
+	case 's', 'o':
+		value, err := self.readString()
+		if err != nil {
+			return err
+		}
+		switch v.Kind() {
+		case reflect.String:
+			v.SetString(value)
+			return nil
+		case reflect.Interface:
+			v.Set(reflect.ValueOf(value))
+			return nil
+		}
+	case 'g':
+		value, err := self.readSignature()
+		if err != nil {
+			return err
+		}
+		switch v.Kind() {
+		case reflect.String:
+			v.SetString(value)
+			return nil
+		case reflect.Interface:
+			v.Set(reflect.ValueOf(value))
+			return nil
+		}
+	case 'a':
+		// XXX: Need to support maps here (i.e. next signature
+		// char is '{')
+		length, err := self.readUint32()
+		if err != nil {
+			return err
+		}
+		elemSigOffset := self.sigOffset
+		arrayEnd := self.dataOffset + int(length)
+		if len(self.data) < arrayEnd {
+			return bufferOverrunError
+		}
+		switch v.Kind() {
+		case reflect.Array:
+			for i := 0; self.dataOffset < arrayEnd; i++ {
+				// Reset signature offset to the array element.
+				self.sigOffset = elemSigOffset
+				if err := self.decodeValue(v.Index(i)); err != nil {
+					return err
+				}
+			}
+			return nil
+		case reflect.Slice:
+			if v.IsNil() {
+				v.Set(reflect.MakeSlice(v.Type(), 0, 0))
+			}
+			v.SetLen(0)
+			for self.dataOffset < arrayEnd {
+				// Reset signature offset to the array element.
+				self.sigOffset = elemSigOffset
+				elem := reflect.New(v.Type().Elem()).Elem()
+				if err := self.decodeValue(elem); err != nil {
+					return err
+				}
+				v.Set(reflect.Append(v, elem))
+			}
+			return nil
+		case reflect.Interface:
+			array := make([]interface{}, 0)
+			for self.dataOffset < arrayEnd {
+				// Reset signature offset to the array element.
+				self.sigOffset = elemSigOffset
+				var elem interface{}
+				if err := self.decodeValue(reflect.ValueOf(&elem).Elem()); err != nil {
+					return err
+				}
+				array = append(array, elem)
+			}
+			v.Set(reflect.ValueOf(array))
+			return nil
+		}
+	}
+	return errors.New("Could not decode " + string(sigCode) + " to " + v.Type().String())
 }
