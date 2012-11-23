@@ -155,7 +155,7 @@ func (self *encoder) appendValue(v reflect.Value) error {
 			self.signature = savedSig
 			return nil
 		}
-		self.align(4)
+		self.align(8)
 		// XXX: save and restore the signature, since we wrote
 		// out the entire struct signature previously.
 		savedSig := self.signature

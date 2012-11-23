@@ -213,7 +213,10 @@ func (p *Connection) Authenticate() error {
 
 func (p *Connection) _MessageReceiver(msgChan chan *Message) {
 	for {
-		p._FillBuffer()
+		e := p._FillBuffer()
+		if e != nil {
+			continue
+		}
 		msg, e := p._PopMessage()
 		if e == nil {
 			msgChan <- msg
@@ -298,7 +301,10 @@ func (p *Connection) _SendSync(msg *Message, callback func(*Message)) error {
 		recvChan <- 0
 	}
 
-	buff, _ := msg._Marshal()
+	buff, err := msg._Marshal()
+	if err != nil {
+		return err
+	}
 	p.conn.Write(buff)
 	<-recvChan // synchronize
 	return nil
