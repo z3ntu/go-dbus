@@ -2,6 +2,8 @@ package dbus
 
 import (
 	"bytes"
+	"encoding/binary"
+	"errors"
 	"sync"
 )
 
@@ -76,45 +78,57 @@ func NewMessage() *Message {
 	return msg
 }
 
+type headerField struct {
+	Code byte
+	Value Variant
+}
+
 func (p *Message) _BufferToMessage(buff []byte) (int, error) {
-	slice, bufIdx, e := Parse(buff, "yyyyuua(yv)", 0)
-	if e != nil {
-		return 0, e
+	var order binary.ByteOrder
+	switch buff[0] {
+	case 'l':
+		order = binary.LittleEndian
+	case 'B':
+		order = binary.BigEndian
+	default:
+		return 0, errors.New("Unknown message endianness: " + string(buff[0]))
 	}
+	dec := newDecoder("yyyyuua(yv)", buff, order)
+	var msgOrder, msgType, msgFlags, msgProtocol byte
+	var msgBodyLength, msgSerial uint32
+	fields := make([]headerField, 0, 10)
+	if err := dec.Decode(&msgOrder, &msgType, &msgFlags, &msgProtocol, &msgBodyLength, &msgSerial, &fields); err != nil {
+		return 0, err
+	}
+	p.Type = MessageType(msgType)
+	p.Flags = MessageFlag(msgFlags)
+	p.Protocol = int(msgProtocol)
+	p.bodyLength = int(msgBodyLength)
+	p.serial = int(msgSerial)
 
-	p.Type = MessageType(slice[1].(byte))
-	p.Flags = MessageFlag(slice[2].(byte))
-	p.Protocol = int(slice[3].(byte))
-	p.bodyLength = int(slice[4].(uint32))
-	p.serial = int(slice[5].(uint32))
-
-	if vec, ok := slice[6].([]interface{}); ok {
-		for _, v := range vec {
-			tmpSlice := v.([]interface{})
-			t := int(tmpSlice[0].(byte))
-			val := tmpSlice[1]
-
-			switch t {
-			case 1:
-				p.Path = val.(string)
-			case 2:
-				p.Iface = val.(string)
-			case 3:
-				p.Member = val.(string)
-			case 4:
-				p.ErrorName = val.(string)
-			case 5:
-				p.replySerial = val.(uint32)
-			case 6:
-				p.Dest = val.(string)
-			case 7:
-				// FIXME
-			case 8:
-				p.Sig = val.(string)
-			}
+	for _, field := range fields {
+		switch field.Code {
+		case 1:
+			p.Path = string(field.Value.Value.(ObjectPath))
+		case 2:
+			p.Iface = field.Value.Value.(string)
+		case 3:
+			p.Member = field.Value.Value.(string)
+		case 4:
+			p.ErrorName = field.Value.Value.(string)
+		case 5:
+			p.replySerial = field.Value.Value.(uint32)
+		case 6:
+			p.Dest = field.Value.Value.(string)
+		case 7:
+			// FIXME
+		case 8:
+			p.Sig = string(field.Value.Value.(Signature))
 		}
 	}
-	idx := _Align(8, bufIdx)
+
+	dec.align(8)
+	idx := dec.dataOffset
 	if 0 < p.bodyLength {
 		p.Params, idx, _ = Parse(buff, p.Sig, idx)
 	}

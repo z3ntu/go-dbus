@@ -8,7 +8,7 @@ func TestUnmarshal(t *testing.T) {
 
 	msg, _, e := _Unmarshal([]byte(teststr))
 	if nil != e {
-		t.Error("Unmarshal Failed")
+		t.Error("Unmarshal Failed:", e)
 	}
 	if TypeMethodCall != msg.Type {
 		t.Error("#1 Failed :", msg.Type)
