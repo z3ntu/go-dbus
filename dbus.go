@@ -141,7 +141,7 @@ type Connection struct {
 
 type Object struct {
 	dest  string
-	path  string
+	path  ObjectPath
 	intro Introspect
 }
 
@@ -346,7 +346,7 @@ func (p *Connection) _SendHello() error {
 	return nil
 }
 
-func (p *Connection) _GetIntrospect(dest string, path string) Introspect {
+func (p *Connection) _GetIntrospect(dest string, path ObjectPath) Introspect {
 	msg := NewMessage()
 	msg.Type = TypeMethodCall
 	msg.Path = path
@@ -445,7 +445,7 @@ func (p *Connection) Emit(signal *Signal, args ...interface{}) error {
 }
 
 // Retrieve a specified object.
-func (p *Connection) Object(dest string, path string) *Object {
+func (p *Connection) Object(dest string, path ObjectPath) *Object {
 
 	obj := new(Object)
 	obj.path = path

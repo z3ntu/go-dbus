@@ -40,22 +40,22 @@ type Message struct {
 	Flags       MessageFlag
 	Protocol    int
 	bodyLength  int
-	Path        string
+	Path        ObjectPath
 	Dest        string
 	Iface       string
 	Member      string
-	Sig         string
+	Sig         Signature
 	Params      []interface{}
-	serial      int
+	serial      uint32
 	replySerial uint32
 	ErrorName   string
 	//	Sender;
 }
 
 var serialMutex sync.Mutex
-var messageSerial = int(0)
+var messageSerial = uint32(0)
 
-func _GetNewSerial() int {
+func _GetNewSerial() uint32 {
 	serialMutex.Lock()
 	messageSerial++
 	serial := messageSerial
@@ -106,12 +106,12 @@ func (p *Message) _BufferToMessage(buff []byte) (int, error) {
 	p.Flags = MessageFlag(msgFlags)
 	p.Protocol = int(msgProtocol)
 	p.bodyLength = int(msgBodyLength)
-	p.serial = int(msgSerial)
+	p.serial = msgSerial
 
 	for _, field := range fields {
 		switch field.Code {
 		case 1:
-			p.Path = string(field.Value.Value.(ObjectPath))
+			p.Path = field.Value.Value.(ObjectPath)
 		case 2:
 			p.Iface = field.Value.Value.(string)
 		case 3:
@@ -125,7 +125,7 @@ func (p *Message) _BufferToMessage(buff []byte) (int, error) {
 		case 7:
 			// FIXME
 		case 8:
-			p.Sig = string(field.Value.Value.(Signature))
+			p.Sig = field.Value.Value.(Signature)
 		}
 	}
 
@@ -164,7 +164,7 @@ func (p *Message) _Marshal() ([]byte, error) {
 	// encode optional fields
 	fields := make([]headerField, 0, 10)
 	if p.Path != "" {
-		fields = append(fields, headerField{1, Variant{ObjectPath(p.Path)}})
+		fields = append(fields, headerField{1, Variant{p.Path}})
 	}
 	if p.Iface != "" {
 		fields = append(fields, headerField{2, Variant{p.Iface}})
@@ -173,17 +173,17 @@ func (p *Message) _Marshal() ([]byte, error) {
 		fields = append(fields, headerField{3, Variant{p.Member}})
 	}
 	if p.replySerial != 0 {
-		fields = append(fields, headerField{5, Variant{uint32(p.replySerial)}})
+		fields = append(fields, headerField{5, Variant{p.replySerial}})
 	}
 	if p.Dest != "" {
 		fields = append(fields, headerField{6, Variant{p.Dest}})
 	}
 	if p.Sig != "" {
-		fields = append(fields, headerField{8, Variant{Signature(p.Sig)}})
+		fields = append(fields, headerField{8, Variant{p.Sig}})
 	}
 
 	var message encoder
-	if err := message.Append(byte('l'), byte(p.Type), byte(p.Flags), byte(p.Protocol), uint32(body.data.Len()), uint32(p.serial), fields); err != nil {
+	if err := message.Append(byte('l'), byte(p.Type), byte(p.Flags), byte(p.Protocol), uint32(body.data.Len()), p.serial, fields); err != nil {
 		return nil, err
 	}
 

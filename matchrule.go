@@ -10,7 +10,7 @@ type MatchRule struct {
 	Type      MessageType
 	Interface string
 	Member    string
-	Path      string
+	Path      ObjectPath
 }
 
 // A string representation af the MatchRule (D-Bus variant map).

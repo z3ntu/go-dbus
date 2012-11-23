@@ -52,13 +52,13 @@ type InterfaceData interface {
 
 type MethodData interface {
 	GetName() string
-	GetInSignature() string
-	GetOutSignature() string
+	GetInSignature() Signature
+	GetOutSignature() Signature
 }
 
 type SignalData interface {
 	GetName() string
-	GetSignature() string
+	GetSignature() Signature
 }
 
 func NewIntrospect(xmlIntro string) (Introspect, error) {
@@ -101,19 +101,19 @@ func (p interfaceData) GetSignalData(name string) SignalData {
 
 func (p interfaceData) GetName() string { return p.Name }
 
-func (p methodData) GetInSignature() (sig string) {
+func (p methodData) GetInSignature() (sig Signature) {
 	for _, v := range p.Arg {
 		if strings.ToUpper(v.Direction) == "IN" {
-			sig += v.Type
+			sig += Signature(v.Type)
 		}
 	}
 	return
 }
 
-func (p methodData) GetOutSignature() (sig string) {
+func (p methodData) GetOutSignature() (sig Signature) {
 	for _, v := range p.Arg {
 		if strings.ToUpper(v.Direction) == "OUT" {
-			sig += v.Type
+			sig += Signature(v.Type)
 		}
 	}
 	return
@@ -121,9 +121,9 @@ func (p methodData) GetOutSignature() (sig string) {
 
 func (p methodData) GetName() string { return p.Name }
 
-func (p signalData) GetSignature() (sig string) {
+func (p signalData) GetSignature() (sig Signature) {
 	for _, v := range p.Arg {
-		sig += v.Type
+		sig += Signature(v.Type)
 	}
 	return
 }

@@ -6,7 +6,9 @@ import (
 )
 
 type callTest struct {
-	dest, path, iface, method string
+	dest string
+	path ObjectPath
+	iface, method string
 	args                      []interface{}
 	validate                  func([]interface{}) error
 }

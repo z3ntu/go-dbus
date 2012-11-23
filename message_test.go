@@ -36,11 +36,11 @@ func (s *S) TestUnmarshalMessage(c *C) {
 		c.Error(err)
 	}
 	c.Check(msg.Type, Equals, TypeMethodCall)
-	c.Check(msg.Path, Equals, "/org/freedesktop/DBus")
+	c.Check(msg.Path, Equals, ObjectPath("/org/freedesktop/DBus"))
 	c.Check(msg.Dest, Equals, "org.freedesktop.DBus")
 	c.Check(msg.Iface, Equals, "org.freedesktop.DBus")
 	c.Check(msg.Member, Equals, "NameHasOwner")
-	c.Check(msg.Sig, Equals, "s")
+	c.Check(msg.Sig, Equals, Signature("s"))
 	c.Check(msg.Params, DeepEquals, []interface{}{"xyz"})
 }
 
