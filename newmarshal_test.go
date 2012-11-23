@@ -467,3 +467,38 @@ func (s *S) TestDecoderDecodeStruct(c *C) {
 	}
 	c.Check(value3, DeepEquals, []interface{}{"hello", int32(42)})
 }
+
+func (s *S) TestDecoderDecodeVariant(c *C) {
+	dec := newDecoder("v", []byte{
+		1,            // len("i")
+		'i', 0,       // Signature("i")
+		0,            // padding
+                42, 0, 0, 0}, // int32(42)
+		binary.LittleEndian)
+
+	var value1 Variant
+	if err := dec.Decode(&value1); err != nil {
+		c.Error("Decode as Variant:", err)
+	}
+	c.Check(dec.dataOffset, Equals, 8)
+	c.Check(dec.sigOffset, Equals, 1)
+	c.Check(value1, DeepEquals, Variant{int32(42)})
+
+	// Decode as pointer to Variant
+	dec.dataOffset = 0
+	dec.sigOffset = 0
+	var value2 *Variant
+	if err := dec.Decode(&value2); err != nil {
+		c.Error("Decode as *Variant:", err)
+	}
+	c.Check(value2, DeepEquals, &Variant{int32(42)})
+
+	// Decode as pointer to blank interface
+	dec.dataOffset = 0
+	dec.sigOffset = 0
+	var value3 interface{}
+	if err := dec.Decode(&value3); err != nil {
+		c.Error("Decode as interface:", err)
+	}
+	c.Check(value3, DeepEquals, &Variant{int32(42)})
+}

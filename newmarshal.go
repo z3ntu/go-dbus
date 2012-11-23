@@ -560,6 +560,41 @@ func (self *decoder) decodeValue(v reflect.Value) error {
 			v.Set(reflect.ValueOf(s))
 			return nil
 		}
+	case 'v':
+		var variant *Variant
+		switch {
+		case v.Kind() == reflect.Ptr && v.Type().Elem() == typeVariant:
+			if v.IsNil() {
+				variant = &Variant{}
+				v.Set(reflect.ValueOf(variant))
+			} else {
+				variant = v.Interface().(*Variant)
+			}
+		case v.Type() == typeVariant:
+			variant = v.Addr().Interface().(*Variant)
+		case typeBlankInterface.AssignableTo(v.Type()):
+			variant = &Variant{}
+			v.Set(reflect.ValueOf(variant))
+		}
+		if variant != nil {
+			signature, err := self.readSignature()
+			if err != nil {
+				return err
+			}
+			// Decode the variant value through a sub-decoder.
+			variantDec := decoder{
+				signature: string(signature),
+				data: self.data,
+				order: self.order,
+				dataOffset: self.dataOffset,
+				sigOffset: 0}
+			if err := variantDec.decodeValue(reflect.ValueOf(&variant.Value).Elem()); err != nil {
+				return err
+			}
+			// Decoding continues after the variant value.
+			self.dataOffset = variantDec.dataOffset
+			return nil
+		}
 	}
 	return errors.New("Could not decode " + string(sigCode) + " to " + v.Type().String())
 }
