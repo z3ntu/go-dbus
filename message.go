@@ -1,7 +1,6 @@
 package dbus
 
 import (
-	"bytes"
 	"encoding/binary"
 	"errors"
 	"sync"
@@ -84,6 +83,9 @@ type headerField struct {
 }
 
 func (p *Message) _BufferToMessage(buff []byte) (int, error) {
+	if len(buff) < 16 {
+		return 0, errors.New("Message buffer too short")
+	}
 	var order binary.ByteOrder
 	switch buff[0] {
 	case 'l':
@@ -145,76 +147,40 @@ func _Unmarshal(buff []byte) (*Message, int, error) {
 }
 
 func (p *Message) _Marshal() ([]byte, error) {
-	buff := bytes.NewBuffer([]byte{})
-	_AppendByte(buff, byte('l')) // little Endian
-	_AppendByte(buff, byte(p.Type))
-	_AppendByte(buff, byte(p.Flags))
-	_AppendByte(buff, byte(p.Protocol))
+	var body encoder
+	if err := body.Append(p.Params...); err != nil {
+		return nil, err
+	}
 
-	tmpBuff := bytes.NewBuffer([]byte{})
-	_AppendParamsData(tmpBuff, p.Sig, p.Params)
-	_AppendUint32(buff, uint32(len(tmpBuff.Bytes())))
-	_AppendUint32(buff, uint32(p.serial))
+	// encode optional fields
+	fields := make([]headerField, 0, 10)
+	if p.Path != "" {
+		fields = append(fields, headerField{1, Variant{ObjectPath(p.Path)}})
+	}
+	if p.Iface != "" {
+		fields = append(fields, headerField{2, Variant{p.Iface}})
+	}
+	if p.Member != "" {
+		fields = append(fields, headerField{3, Variant{p.Member}})
+	}
+	if p.replySerial != 0 {
+		fields = append(fields, headerField{5, Variant{uint32(p.replySerial)}})
+	}
+	if p.Dest != "" {
+		fields = append(fields, headerField{6, Variant{p.Dest}})
+	}
+	if p.Sig != "" {
+		fields = append(fields, headerField{8, Variant{Signature(p.Sig)}})
+	}
 
-	_AppendArray(buff, 1,
-		func(b *bytes.Buffer) {
-			if p.Path != "" {
-				_AppendAlign(8, b)
-				_AppendByte(b, 1) // path
-				_AppendByte(b, 1) // signature size
-				_AppendByte(b, 'o')
-				_AppendByte(b, 0)
-				_AppendString(b, p.Path)
-			}
+	var message encoder
+	if err := message.Append(byte('l'), byte(p.Type), byte(p.Flags), byte(p.Protocol), uint32(body.data.Len()), uint32(p.serial), fields); err != nil {
+		return nil, err
+	}
 
-			if p.Iface != "" {
-				_AppendAlign(8, b)
-				_AppendByte(b, 2) // interface
-				_AppendByte(b, 1) // signature size
-				_AppendByte(b, 's')
-				_AppendByte(b, 0)
-				_AppendString(b, p.Iface)
-			}
+	// append the body
+	message.align(8)
+	message.data.Write(body.data.Bytes())
 
-			if p.Member != "" {
-				_AppendAlign(8, b)
-				_AppendByte(b, 3) // member
-				_AppendByte(b, 1) // signature size
-				_AppendByte(b, 's')
-				_AppendByte(b, 0)
-				_AppendString(b, p.Member)
-			}
-
-			if p.replySerial != 0 {
-				_AppendAlign(8, b)
-				_AppendByte(b, 5) // reply serial
-				_AppendByte(b, 1) // signature size
-				_AppendByte(b, 'u')
-				_AppendByte(b, 0)
-				_AppendUint32(b, uint32(p.replySerial))
-			}
-
-			if p.Dest != "" {
-				_AppendAlign(8, b)
-				_AppendByte(b, 6) // destination
-				_AppendByte(b, 1) // signature size
-				_AppendByte(b, 's')
-				_AppendByte(b, 0)
-				_AppendString(b, p.Dest)
-			}
-
-			if p.Sig != "" {
-				_AppendAlign(8, b)
-				_AppendByte(b, 8) // signature
-				_AppendByte(b, 1) // signature size
-				_AppendByte(b, 'g')
-				_AppendByte(b, 0)
-				_AppendSignature(b, p.Sig)
-			}
-		})
-
-	_AppendAlign(8, buff)
-	_AppendParamsData(buff, p.Sig, p.Params)
-
-	return buff.Bytes(), nil
+	return message.data.Bytes(), nil
 }
