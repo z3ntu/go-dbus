@@ -522,6 +522,41 @@ func (self *decoder) decodeValue(v reflect.Value) error {
 			v.Set(reflect.ValueOf(array))
 			return nil
 		}
+	case '(':
+		self.align(8)
+		// Do we have a pointer to a struct?
+		if v.Kind() == reflect.Ptr && v.Type().Elem().Kind() == reflect.Struct {
+			if v.IsNil() {
+				v.Set(reflect.New(v.Type().Elem()))
+			}
+			v = v.Elem()
+		}
+		switch v.Kind() {
+		case reflect.Struct:
+			for i := 0; i < v.NumField() && self.sigOffset < len(self.signature) && self.signature[self.sigOffset] != ')'; i++ {
+				if err := self.decodeValue(v.Field(i)); err != nil {
+					return err
+				}
+			}
+			if self.sigOffset >= len(self.signature) || self.signature[self.sigOffset] != ')' {
+				return signatureOverrunError
+			}
+			// move past the closing parentheses
+			self.sigOffset += 1
+			return nil
+		case reflect.Interface:
+			// Decode as a slice of interface{} values.
+			s := make([]interface{}, 0)
+			for self.sigOffset < len(self.signature) && self.signature[self.sigOffset] != ')' {
+				var field interface{}
+				if err := self.decodeValue(reflect.ValueOf(&field).Elem()); err != nil {
+					return err
+				}
+				s = append(s, field)
+			}
+			v.Set(reflect.ValueOf(s))
+			return nil
+		}
 	}
 	return errors.New("Could not decode " + string(sigCode) + " to " + v.Type().String())
 }

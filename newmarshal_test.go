@@ -339,11 +339,12 @@ func (s *S) TestDecoderDecodeFloat64(c *C) {
 
 func (s *S) TestDecoderDecodeString(c *C) {
 	dec := newDecoder("ss", []byte{
-		5, 0, 0, 0,                 // len("hello")
-		'h', 'e', 'l', 'l', 'o', 0, // "hello"
-		0, 0,                       // padding
-		5, 0, 0, 0,                 // len("world")
-		'w', 'o', 'r', 'l', 'd', 0}, binary.LittleEndian)
+		5, 0, 0, 0,                  // len("hello")
+		'h', 'e', 'l', 'l', 'o', 0,  // "hello"
+		0, 0,                        // padding
+		5, 0, 0, 0,                  // len("world")
+		'w', 'o', 'r', 'l', 'd', 0}, // "world"
+		binary.LittleEndian)
 	var value1 string
 	var value2 interface{}
 	if err := dec.Decode(&value1, &value2); err != nil {
@@ -357,11 +358,12 @@ func (s *S) TestDecoderDecodeString(c *C) {
 
 func (s *S) TestDecoderDecodeObjectPath(c *C) {
 	dec := newDecoder("oo", []byte{
-		4, 0, 0, 0,            // len("/foo")
-		'/', 'f', 'o', 'o', 0, // "/foo"
-		0, 0, 0,               // padding
-		4, 0, 0, 0,            // len("/bar")
-		'/', 'b', 'a', 'r', 0}, binary.LittleEndian)
+		4, 0, 0, 0,             // len("/foo")
+		'/', 'f', 'o', 'o', 0,  // ObjectPath("/foo")
+		0, 0, 0,                // padding
+		4, 0, 0, 0,             // len("/bar")
+		'/', 'b', 'a', 'r', 0}, // ObjectPath("/bar")
+		binary.LittleEndian)
 	var value1 ObjectPath
 	var value2 interface{}
 	if err := dec.Decode(&value1, &value2); err != nil {
@@ -376,9 +378,10 @@ func (s *S) TestDecoderDecodeObjectPath(c *C) {
 func (s *S) TestDecoderDecodeSignature(c *C) {
 	dec := newDecoder("gg", []byte{
 		8,                                         // len("a{s(iv)}")
-		'a', '{', 's', '(', 'i', 'v', ')', '}', 0, // "a{s(iv)}"
+		'a', '{', 's', '(', 'i', 'v', ')', '}', 0, // Signature("a{s(iv)}")
 		4,                                         // len("asvi")
-		'a', 's', 'v', 'i', 0}, binary.LittleEndian)
+		'a', 's', 'v', 'i', 0},                    // Signature("asvi")
+		binary.LittleEndian)
 	var value1 Signature
 	var value2 interface{}
 	if err := dec.Decode(&value1, &value2); err != nil {
@@ -390,7 +393,7 @@ func (s *S) TestDecoderDecodeSignature(c *C) {
 	c.Check(dec.sigOffset, Equals, 2)
 }
 
-func (s *S) TestDecoderArray(c *C) {
+func (s *S) TestDecoderDecodeArray(c *C) {
 	dec := newDecoder("ai", []byte{
 		8, 0, 0, 0,    // array length
 		42, 0, 0, 0,   // int32(42)
@@ -423,4 +426,44 @@ func (s *S) TestDecoderArray(c *C) {
 		c.Error("Decode as interface:", err)
 	}
 	c.Check(value3, DeepEquals, []interface{}{int32(42), int32(100)})
+}
+
+func (s *S) TestDecoderDecodeStruct(c *C) {
+	dec := newDecoder("(si)", []byte{
+		5, 0, 0, 0,                 // len("hello")
+                'h', 'e', 'l', 'l', 'o', 0, // "hello"
+		0, 0,                       // padding
+                42, 0, 0, 0},               // int32(42)
+		binary.LittleEndian)
+
+	type Dummy struct {
+		S string
+		I int32
+	}
+	// Decode as structure
+	var value1 Dummy
+	if err := dec.Decode(&value1); err != nil {
+		c.Error("Decode as structure:", err)
+	}
+	c.Check(dec.dataOffset, Equals, 16)
+	c.Check(dec.sigOffset, Equals, 4)
+	c.Check(value1, DeepEquals, Dummy{"hello", 42})
+
+	// Decode as pointer to structure
+	dec.dataOffset = 0
+	dec.sigOffset = 0
+	var value2 *Dummy
+	if err := dec.Decode(&value2); err != nil {
+		c.Error("Decode as structure pointer:", err)
+	}
+	c.Check(value2, DeepEquals, &Dummy{"hello", 42})
+
+	// Decode as blank interface
+	dec.dataOffset = 0
+	dec.sigOffset = 0
+	var value3 interface{}
+	if err := dec.Decode(&value3); err != nil {
+		c.Error("Decode as interface:", err)
+	}
+	c.Check(value3, DeepEquals, []interface{}{"hello", int32(42)})
 }
