@@ -323,8 +323,11 @@ func (self *decoder) decodeValue(v reflect.Value) error {
 		if err != nil {
 			return err
 		}
-		switch v.Kind() {
-		case reflect.Uint8, reflect.Interface:
+		switch {
+		case v.Kind() == reflect.Uint8:
+			v.SetUint(uint64(value))
+			return nil
+		case typeBlankInterface.AssignableTo(v.Type()):
 			v.Set(reflect.ValueOf(value))
 			return nil
 		}
@@ -333,11 +336,11 @@ func (self *decoder) decodeValue(v reflect.Value) error {
 		if err != nil {
 			return err
 		}
-		switch v.Kind() {
-		case reflect.Bool:
+		switch {
+		case v.Kind() == reflect.Bool:
 			v.SetBool(value != 0)
 			return nil
-		case reflect.Interface:
+		case typeBlankInterface.AssignableTo(v.Type()):
 			v.Set(reflect.ValueOf(value != 0))
 			return nil
 		}
@@ -346,11 +349,11 @@ func (self *decoder) decodeValue(v reflect.Value) error {
 		if err != nil {
 			return err
 		}
-		switch v.Kind() {
-		case reflect.Int16:
+		switch {
+		case v.Kind() == reflect.Int16:
 			v.SetInt(int64(value))
 			return nil
-		case reflect.Interface:
+		case typeBlankInterface.AssignableTo(v.Type()):
 			v.Set(reflect.ValueOf(value))
 			return nil
 		}
@@ -359,11 +362,11 @@ func (self *decoder) decodeValue(v reflect.Value) error {
 		if err != nil {
 			return err
 		}
-		switch v.Kind() {
-		case reflect.Uint16:
+		switch {
+		case v.Kind() == reflect.Uint16:
 			v.SetUint(uint64(value))
 			return nil
-		case reflect.Interface:
+		case typeBlankInterface.AssignableTo(v.Type()):
 			v.Set(reflect.ValueOf(value))
 			return nil
 		}
@@ -372,11 +375,11 @@ func (self *decoder) decodeValue(v reflect.Value) error {
 		if err != nil {
 			return err
 		}
-		switch v.Kind() {
-		case reflect.Int32:
+		switch {
+		case v.Kind() == reflect.Int32:
 			v.SetInt(int64(value))
 			return nil
-		case reflect.Interface:
+		case typeBlankInterface.AssignableTo(v.Type()):
 			v.Set(reflect.ValueOf(value))
 			return nil
 		}
@@ -385,11 +388,11 @@ func (self *decoder) decodeValue(v reflect.Value) error {
 		if err != nil {
 			return err
 		}
-		switch v.Kind() {
-		case reflect.Uint32:
+		switch {
+		case v.Kind() == reflect.Uint32:
 			v.SetUint(uint64(value))
 			return nil
-		case reflect.Interface:
+		case typeBlankInterface.AssignableTo(v.Type()):
 			v.Set(reflect.ValueOf(value))
 			return nil
 		}
@@ -398,11 +401,11 @@ func (self *decoder) decodeValue(v reflect.Value) error {
 		if err != nil {
 			return err
 		}
-		switch v.Kind() {
-		case reflect.Int64:
+		switch {
+		case v.Kind() == reflect.Int64:
 			v.SetInt(int64(value))
 			return nil
-		case reflect.Interface:
+		case typeBlankInterface.AssignableTo(v.Type()):
 			v.Set(reflect.ValueOf(value))
 			return nil
 		}
@@ -411,11 +414,11 @@ func (self *decoder) decodeValue(v reflect.Value) error {
 		if err != nil {
 			return err
 		}
-		switch v.Kind() {
-		case reflect.Uint64:
+		switch {
+		case v.Kind() == reflect.Uint64:
 			v.SetUint(uint64(value))
 			return nil
-		case reflect.Interface:
+		case typeBlankInterface.AssignableTo(v.Type()):
 			v.Set(reflect.ValueOf(value))
 			return nil
 		}
@@ -424,11 +427,11 @@ func (self *decoder) decodeValue(v reflect.Value) error {
 		if err != nil {
 			return err
 		}
-		switch v.Kind() {
-		case reflect.Float64:
+		switch {
+		case v.Kind() == reflect.Float64:
 			v.SetFloat(value)
 			return nil
-		case reflect.Interface:
+		case typeBlankInterface.AssignableTo(v.Type()):
 			v.Set(reflect.ValueOf(value))
 			return nil
 		}
@@ -437,11 +440,11 @@ func (self *decoder) decodeValue(v reflect.Value) error {
 		if err != nil {
 			return err
 		}
-		switch v.Kind() {
-		case reflect.String:
+		switch {
+		case v.Kind() == reflect.String:
 			v.SetString(value)
 			return nil
-		case reflect.Interface:
+		case typeBlankInterface.AssignableTo(v.Type()):
 			v.Set(reflect.ValueOf(value))
 			return nil
 		}
@@ -450,11 +453,11 @@ func (self *decoder) decodeValue(v reflect.Value) error {
 		if err != nil {
 			return err
 		}
-		switch v.Kind() {
-		case reflect.String:
+		switch {
+		case v.Kind() == reflect.String:
 			v.SetString(value)
 			return nil
-		case reflect.Interface:
+		case typeBlankInterface.AssignableTo(v.Type()):
 			v.Set(reflect.ValueOf(ObjectPath(value)))
 			return nil
 		}
@@ -463,11 +466,11 @@ func (self *decoder) decodeValue(v reflect.Value) error {
 		if err != nil {
 			return err
 		}
-		switch v.Kind() {
-		case reflect.String:
+		switch {
+		case v.Kind() == reflect.String:
 			v.SetString(string(value))
 			return nil
-		case reflect.Interface:
+		case typeBlankInterface.AssignableTo(v.Type()):
 			v.Set(reflect.ValueOf(value))
 			return nil
 		}
@@ -483,8 +486,8 @@ func (self *decoder) decodeValue(v reflect.Value) error {
 		if len(self.data) < arrayEnd {
 			return bufferOverrunError
 		}
-		switch v.Kind() {
-		case reflect.Array:
+		switch {
+		case v.Kind() == reflect.Array:
 			for i := 0; self.dataOffset < arrayEnd; i++ {
 				// Reset signature offset to the array element.
 				self.sigOffset = elemSigOffset
@@ -493,7 +496,7 @@ func (self *decoder) decodeValue(v reflect.Value) error {
 				}
 			}
 			return nil
-		case reflect.Slice:
+		case v.Kind() == reflect.Slice:
 			if v.IsNil() {
 				v.Set(reflect.MakeSlice(v.Type(), 0, 0))
 			}
@@ -508,7 +511,7 @@ func (self *decoder) decodeValue(v reflect.Value) error {
 				v.Set(reflect.Append(v, elem))
 			}
 			return nil
-		case reflect.Interface:
+		case typeBlankInterface.AssignableTo(v.Type()):
 			array := make([]interface{}, 0)
 			for self.dataOffset < arrayEnd {
 				// Reset signature offset to the array element.
@@ -531,8 +534,8 @@ func (self *decoder) decodeValue(v reflect.Value) error {
 			}
 			v = v.Elem()
 		}
-		switch v.Kind() {
-		case reflect.Struct:
+		switch {
+		case v.Kind() == reflect.Struct:
 			for i := 0; i < v.NumField() && self.sigOffset < len(self.signature) && self.signature[self.sigOffset] != ')'; i++ {
 				if err := self.decodeValue(v.Field(i)); err != nil {
 					return err
@@ -544,7 +547,7 @@ func (self *decoder) decodeValue(v reflect.Value) error {
 			// move past the closing parentheses
 			self.sigOffset += 1
 			return nil
-		case reflect.Interface:
+		case typeBlankInterface.AssignableTo(v.Type()):
 			// Decode as a slice of interface{} values.
 			s := make([]interface{}, 0)
 			for self.sigOffset < len(self.signature) && self.signature[self.sigOffset] != ')' {

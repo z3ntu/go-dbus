@@ -9,6 +9,7 @@ var (
 	typeHasObjectPath = reflect.TypeOf((*HasObjectPath)(nil)).Elem()
 	typeVariant = reflect.TypeOf(Variant{})
 	typeSignature = reflect.TypeOf(Signature(""))
+	typeBlankInterface = reflect.TypeOf((*interface{})(nil)).Elem()
 )
 
 
