@@ -8,6 +8,7 @@ import (
 	"net"
 	"os"
 	"strings"
+	"sync"
 )
 
 type StandardBus int
@@ -137,6 +138,9 @@ type Connection struct {
 	conn              net.Conn
 	buffer            *bytes.Buffer
 	proxy             *Interface
+
+	lastSerialMutex   sync.Mutex
+	lastSerial        uint32
 }
 
 type Object struct {
@@ -322,7 +326,16 @@ func (p *Connection) _FillBuffer() error {
 	return e
 }
 
+func (p *Connection) nextSerial() (serial uint32) {
+	p.lastSerialMutex.Lock()
+	p.lastSerial++
+	serial = p.lastSerial
+	p.lastSerialMutex.Unlock()
+	return
+}
+
 func (p *Connection) _SendSync(msg *Message, callback func(*Message)) error {
+	msg.setSerial(p.nextSerial())
 	seri := uint32(msg.serial)
 	recvChan := make(chan int)
 	p.methodCallReplies[seri] = func(rmsg *Message) {
@@ -438,6 +451,7 @@ func (p *Connection) Emit(signal *Signal, args ...interface{}) error {
 	msg.Sig = signal.data.GetSignature()
 	msg.Params = args[:]
 
+	msg.setSerial(p.nextSerial())
 	buff, _ := msg._Marshal()
 	_, err := p.conn.Write(buff)
 

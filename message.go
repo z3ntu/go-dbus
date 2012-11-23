@@ -3,7 +3,6 @@ package dbus
 import (
 	"encoding/binary"
 	"errors"
-	"sync"
 )
 
 // See the D-Bus tutorial for information about message types.
@@ -52,22 +51,11 @@ type Message struct {
 	//	Sender;
 }
 
-var serialMutex sync.Mutex
-var messageSerial = uint32(0)
-
-func _GetNewSerial() uint32 {
-	serialMutex.Lock()
-	messageSerial++
-	serial := messageSerial
-	serialMutex.Unlock()
-	return serial
-}
-
 // Create a new message with Flags == 0 and Protocol == 1.
 func NewMessage() *Message {
 	msg := new(Message)
 
-	msg.serial = _GetNewSerial()
+	msg.serial = 0
 	msg.replySerial = 0
 	msg.Flags = 0
 	msg.Protocol = 1
@@ -75,6 +63,57 @@ func NewMessage() *Message {
 	msg.Params = make([]interface{}, 0)
 
 	return msg
+}
+
+func NewMethodCallMessage(destination string, path ObjectPath, iface string, member string) *Message {
+	msg := NewMessage()
+	msg.Type = TypeMethodCall
+	msg.Dest = destination
+	msg.Path = path
+	msg.Iface = iface
+	msg.Member = member
+	return msg
+}
+
+func NewMethodReturnMessage(methodCall *Message) *Message {
+	if methodCall.serial == 0 {
+		panic("methodCall.serial == 0")
+	}
+	msg := NewMessage()
+	msg.Type = TypeMethodReturn
+	msg.replySerial = methodCall.serial
+	return msg
+}
+
+func NewSignalMessage(path ObjectPath, iface string, member string) *Message {
+	msg := NewMessage()
+	msg.Type = TypeSignal
+	msg.Path = path
+	msg.Iface = iface
+	msg.Member = member
+	return msg
+}
+
+func NewErrorMessage(methodCall *Message, errorName string, message string) *Message {
+	if methodCall.serial == 0 {
+		panic("methodCall.serial == 0")
+	}
+	msg := NewMessage()
+	msg.Type = TypeError
+	msg.replySerial = methodCall.serial
+	msg.ErrorName = errorName
+	if message != "" {
+		msg.Sig = "s"
+		msg.Params = []interface{}{message}
+	}
+	return msg
+}
+
+func (p *Message) setSerial(serial uint32) {
+	if p.serial != 0 {
+		panic("Message already has a serial number")
+	}
+	p.serial = serial
 }
 
 type headerField struct {
