@@ -8,7 +8,7 @@ import (
 )
 
 type decoder struct {
-	signature string
+	signature Signature
 	data []byte
 	order binary.ByteOrder
 
@@ -19,7 +19,7 @@ var (
 	bufferOverrunError = errors.New("Buffer too small")
 	signatureOverrunError = errors.New("Signature too small"))
 
-func newDecoder(signature string, data []byte, order binary.ByteOrder) *decoder {
+func newDecoder(signature Signature, data []byte, order binary.ByteOrder) *decoder {
 	return &decoder{signature: signature, data: data, order: order}
 }
 
@@ -418,7 +418,7 @@ func (self *decoder) decodeValue(v reflect.Value) error {
 			}
 			// Decode the variant value through a sub-decoder.
 			variantDec := decoder{
-				signature: string(signature),
+				signature: signature,
 				data: self.data,
 				order: self.order,
 				dataOffset: self.dataOffset,
