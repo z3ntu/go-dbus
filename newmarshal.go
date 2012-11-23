@@ -292,12 +292,12 @@ func (self *decoder) readString() (string, error) {
 	if len(self.data) < self.dataOffset + int(length) + 1 {
 		return "", bufferOverrunError
 	}
-	value := string(self.data[self.dataOffset:self.dataOffset+int(length)])
+	value := string(self.data[self.dataOffset:self.dataOffset + int(length)])
 	self.dataOffset += int(length) + 1
 	return value, nil
 }
 
-func (self *decoder) readSignature() (string, error) {
+func (self *decoder) readSignature() (Signature, error) {
 	length, err := self.readByte()
 	if err != nil {
 		return "", err
@@ -306,7 +306,7 @@ func (self *decoder) readSignature() (string, error) {
 	if len(self.data) < self.dataOffset + int(length) + 1 {
 		return "", bufferOverrunError
 	}
-	value := string(self.data[self.dataOffset:self.dataOffset+int(length)])
+	value := Signature(self.data[self.dataOffset:self.dataOffset + int(length)])
 	self.dataOffset += int(length) + 1
 	return value, nil
 }
@@ -412,7 +412,7 @@ func (self *decoder) decodeValue(v reflect.Value) error {
 			return err
 		}
 		switch v.Kind() {
-		case reflect.Uint32:
+		case reflect.Uint64:
 			v.SetUint(uint64(value))
 			return nil
 		case reflect.Interface:
@@ -432,7 +432,7 @@ func (self *decoder) decodeValue(v reflect.Value) error {
 			v.Set(reflect.ValueOf(value))
 			return nil
 		}
-	case 's', 'o':
+	case 's':
 		value, err := self.readString()
 		if err != nil {
 			return err
@@ -445,6 +445,19 @@ func (self *decoder) decodeValue(v reflect.Value) error {
 			v.Set(reflect.ValueOf(value))
 			return nil
 		}
+	case 'o':
+		value, err := self.readString()
+		if err != nil {
+			return err
+		}
+		switch v.Kind() {
+		case reflect.String:
+			v.SetString(value)
+			return nil
+		case reflect.Interface:
+			v.Set(reflect.ValueOf(ObjectPath(value)))
+			return nil
+		}
 	case 'g':
 		value, err := self.readSignature()
 		if err != nil {
@@ -452,7 +465,7 @@ func (self *decoder) decodeValue(v reflect.Value) error {
 		}
 		switch v.Kind() {
 		case reflect.String:
-			v.SetString(value)
+			v.SetString(string(value))
 			return nil
 		case reflect.Interface:
 			v.Set(reflect.ValueOf(value))
