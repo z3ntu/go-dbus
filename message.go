@@ -130,10 +130,19 @@ func (p *Message) _BufferToMessage(buff []byte) (int, error) {
 	}
 
 	dec.align(8)
-	idx := dec.dataOffset
 	if 0 < p.bodyLength {
-		p.Params, idx, _ = Parse(buff, p.Sig, idx)
+		dec.signature = Signature(p.Sig)
+		dec.sigOffset = 0
+		p.Params = make([]interface{}, 0)
+		for dec.HasMore() {
+			var param interface{}
+			if err := dec.Decode(&param); err != nil {
+				return 0, err
+			}
+			p.Params = append(p.Params, param)
+		}
 	}
+	idx := dec.dataOffset
 	return idx, nil
 }
 

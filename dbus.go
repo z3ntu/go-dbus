@@ -2,6 +2,7 @@ package dbus
 
 import (
 	"bytes"
+	"encoding/binary"
 	"errors"
 	"fmt"
 	"net"
@@ -15,6 +16,34 @@ const (
 	SessionBus StandardBus = iota
 	SystemBus
 )
+
+
+// ---- Remaining functions from old marshaller ----
+func _Align(length int, index int) int {
+	switch length {
+	case 1:
+		return index
+	case 2, 4, 8:
+		bit := length - 1
+		return ^bit & (index + bit)
+	}
+	// default
+	return -1
+}
+
+func _GetInt32(buff []byte, index int) (int32, error) {
+	if len(buff) <= index+4-1 {
+		return 0, errors.New("index error")
+	}
+	var l int32
+	e := binary.Read(bytes.NewBuffer(buff[index:len(buff)]), binary.LittleEndian, &l)
+	if e != nil {
+		return 0, e
+	}
+	return l, nil
+}
+
+// ----------------
 
 const dbusXMLIntro = `
 <!DOCTYPE node PUBLIC "-//freedesktop//DTD D-BUS Object Introspection 1.0//EN"
