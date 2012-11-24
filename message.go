@@ -49,7 +49,7 @@ type Message struct {
 	serial      uint32
 	replySerial uint32
 	ErrorName   string
-	//	Sender;
+	Sender      string
 }
 
 // Create a new message with Flags == 0 and Protocol == 1.
@@ -80,9 +80,13 @@ func NewMethodReturnMessage(methodCall *Message) *Message {
 	if methodCall.serial == 0 {
 		panic("methodCall.serial == 0")
 	}
+	if methodCall.Type != TypeMethodCall {
+		panic("replies should be sent in response to method calls")
+	}
 	msg := NewMessage()
 	msg.Type = TypeMethodReturn
 	msg.replySerial = methodCall.serial
+	msg.Dest = methodCall.Sender
 	return msg
 }
 
@@ -99,9 +103,13 @@ func NewErrorMessage(methodCall *Message, errorName string, message string) *Mes
 	if methodCall.serial == 0 {
 		panic("methodCall.serial == 0")
 	}
+	if methodCall.Type != TypeMethodCall {
+		panic("errors should be sent in response to method calls")
+	}
 	msg := NewMessage()
 	msg.Type = TypeError
 	msg.replySerial = methodCall.serial
+	msg.Dest = methodCall.Sender
 	msg.ErrorName = errorName
 	if message != "" {
 		msg.sig = "s"
@@ -179,7 +187,7 @@ func (p *Message) _BufferToMessage(buff []byte) (int, error) {
 		case 6:
 			p.Dest = field.Value.Value.(string)
 		case 7:
-			// FIXME
+			p.Sender = field.Value.Value.(string)
 		case 8:
 			p.sig = field.Value.Value.(Signature)
 		}
@@ -232,6 +240,9 @@ func (p *Message) _Marshal() ([]byte, error) {
 	}
 	if p.Dest != "" {
 		fields = append(fields, headerField{6, Variant{p.Dest}})
+	}
+	if p.Sender != "" {
+		fields = append(fields, headerField{7, Variant{p.Sender}})
 	}
 	if p.sig != "" {
 		fields = append(fields, headerField{8, Variant{p.sig}})
