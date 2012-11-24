@@ -46,85 +46,6 @@ func _GetInt32(buff []byte, index int) (int32, error) {
 
 // ----------------
 
-const dbusXMLIntro = `
-<!DOCTYPE node PUBLIC "-//freedesktop//DTD D-BUS Object Introspection 1.0//EN"
-"http://www.freedesktop.org/standards/dbus/1.0/introspect.dtd">
-<node>
-  <interface name="org.freedesktop.DBus.Introspectable">
-    <method name="Introspect">
-      <arg name="data" direction="out" type="s"/>
-    </method>
-  </interface>
-  <interface name="org.freedesktop.DBus">
-    <method name="RequestName">
-      <arg direction="in" type="s"/>
-      <arg direction="in" type="u"/>
-      <arg direction="out" type="u"/>
-    </method>
-    <method name="ReleaseName">
-      <arg direction="in" type="s"/>
-      <arg direction="out" type="u"/>
-    </method>
-    <method name="StartServiceByName">
-      <arg direction="in" type="s"/>
-      <arg direction="in" type="u"/>
-      <arg direction="out" type="u"/>
-    </method>
-    <method name="Hello">
-      <arg direction="out" type="s"/>
-    </method>
-    <method name="NameHasOwner">
-      <arg direction="in" type="s"/>
-      <arg direction="out" type="b"/>
-    </method>
-    <method name="ListNames">
-      <arg direction="out" type="as"/>
-    </method>
-    <method name="ListActivatableNames">
-      <arg direction="out" type="as"/>
-    </method>
-    <method name="AddMatch">
-      <arg direction="in" type="s"/>
-    </method>
-    <method name="RemoveMatch">
-      <arg direction="in" type="s"/>
-    </method>
-    <method name="GetNameOwner">
-      <arg direction="in" type="s"/>
-      <arg direction="out" type="s"/>
-    </method>
-    <method name="ListQueuedOwners">
-      <arg direction="in" type="s"/>
-      <arg direction="out" type="as"/>
-    </method>
-    <method name="GetConnectionUnixUser">
-      <arg direction="in" type="s"/>
-      <arg direction="out" type="u"/>
-    </method>
-    <method name="GetConnectionUnixProcessID">
-      <arg direction="in" type="s"/>
-      <arg direction="out" type="u"/>
-    </method>
-    <method name="GetConnectionSELinuxSecurityContext">
-      <arg direction="in" type="s"/>
-      <arg direction="out" type="ay"/>
-    </method>
-    <method name="ReloadConfig">
-    </method>
-    <signal name="NameOwnerChanged">
-      <arg type="s"/>
-      <arg type="s"/>
-      <arg type="s"/>
-    </signal>
-    <signal name="NameLost">
-      <arg type="s"/>
-    </signal>
-    <signal name="NameAcquired">
-      <arg type="s"/>
-    </signal>
-  </interface>
-</node>`
-
 type signalHandler struct {
 	mr   MatchRule
 	proc func(*Message)
@@ -137,7 +58,6 @@ type Connection struct {
 	signalMatchRules  []signalHandler
 	conn              net.Conn
 	buffer            *bytes.Buffer
-	proxy             *Interface
 
 	lastSerialMutex   sync.Mutex
 	lastSerial        uint32
@@ -230,7 +150,6 @@ func Connect(busType StandardBus) (*Connection, error) {
 
 	bus.methodCallReplies = make(map[uint32]chan<- *Message)
 	bus.signalMatchRules = make([]signalHandler, 0)
-	bus.proxy = bus._GetProxy()
 	bus.buffer = bytes.NewBuffer([]byte{})
 	return bus, nil
 }
@@ -365,8 +284,16 @@ func (p *Connection) SendWithReply(msg *Message) (*Message, error) {
 }
 
 func (p *Connection) _SendHello() error {
-	if method, err := p.proxy.Method("Hello"); err == nil {
-		p.Call(method)
+	method := NewMethodCallMessage("org.freedesktop.DBus", "/org/freedesktop/DBus", "org.freedesktop.DBus", "Hello")
+	reply, err := p.SendWithReply(method)
+	if err != nil {
+		return err
+	}
+	if reply.Type == TypeError {
+		return reply.AsError()
+	}
+	if err := reply.Get(&p.uniqName); err != nil {
+		return err
 	}
 	return nil
 }
@@ -406,20 +333,6 @@ func (obj *Object) Interface(name string) *Interface {
 	return iface
 }
 
-func (p *Connection) _GetProxy() *Interface {
-	obj := new(Object)
-	obj.path = "/org/freedesktop/DBus"
-	obj.dest = "org.freedesktop.DBus"
-	obj.intro, _ = NewIntrospect(dbusXMLIntro)
-
-	iface := new(Interface)
-	iface.obj = obj
-	iface.name = "org.freedesktop.DBus"
-	iface.intro = obj.intro.GetInterfaceData("org.freedesktop.DBus")
-
-	return iface
-}
-
 // Call a method with the given arguments.
 func (p *Connection) Call(method *Method, args ...interface{}) ([]interface{}, error) {
 	iface := method.iface
@@ -433,6 +346,9 @@ func (p *Connection) Call(method *Method, args ...interface{}) ([]interface{}, e
 	reply, err := p.SendWithReply(msg)
 	if err != nil {
 		return nil, err
+	}
+	if reply.Type == TypeError {
+		return nil, reply.AsError()
 	}
 	return reply.GetArgs(), nil
 }
@@ -463,8 +379,14 @@ func (p *Connection) Object(dest string, path ObjectPath) *Object {
 
 // Handle received signals.
 func (p *Connection) Handle(rule *MatchRule, handler func(*Message)) {
-	p.signalMatchRules = append(p.signalMatchRules, signalHandler{*rule, handler})
-	if method, err := p.proxy.Method("AddMatch"); err == nil {
-		p.Call(method, rule.String())
+	method := NewMethodCallMessage("org.freedesktop.DBus", "/org/freedesktop/DBus", "org.freedesktop.DBus", "AddMatch")
+	method.Append(rule.String())
+
+	reply, err := p.SendWithReply(method)
+	if err != nil {
+		panic(err)
+	}
+	if reply.Type == TypeError {
+		panic(reply.AsError())
 	}
 }

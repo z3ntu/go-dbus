@@ -2,6 +2,7 @@ package dbus
 
 import (
 	"errors"
+	"fmt"
 	"reflect"
 )
 
@@ -84,8 +85,6 @@ func getSignature(t reflect.Type) (Signature, error) {
 }
 
 
-
-
 type ObjectPath string
 
 type HasObjectPath interface {
@@ -104,3 +103,12 @@ func (v *Variant) GetVariantSignature() (Signature, error) {
 	return getSignature(reflect.TypeOf(v.Value))
 }
 
+
+type Error struct {
+	Name string
+	Message string
+}
+
+func (e *Error) Error() string {
+	return fmt.Sprint(e.Name, ": ", e.Message)
+}

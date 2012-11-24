@@ -136,6 +136,11 @@ func (p *Message) Append(args ...interface{}) error {
 	return nil
 }
 
+func (p *Message) Get(args ...interface{}) error {
+	dec := newDecoder(p.sig, p.body, p.order)
+	return dec.Decode(args...)
+}
+
 func (p *Message) GetArgs() []interface{} {
 	dec := newDecoder(p.sig, p.body, p.order)
 	args := make([]interface{}, 0)
@@ -147,6 +152,18 @@ func (p *Message) GetArgs() []interface{} {
 		args = append(args, arg)
 	}
 	return args
+}
+
+func (p *Message) AsError() error {
+	if p.Type != TypeError {
+		panic("Only messages of type 'error' can be converted to an error")
+	}
+	var errorMessage string
+	if err := p.Get(&errorMessage); err != nil {
+		// Ignore error
+		errorMessage = ""
+	}
+	return &Error{p.ErrorName, errorMessage}
 }
 
 type headerField struct {
