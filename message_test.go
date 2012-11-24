@@ -41,7 +41,11 @@ func (s *S) TestUnmarshalMessage(c *C) {
 	c.Check(msg.Iface, Equals, "org.freedesktop.DBus")
 	c.Check(msg.Member, Equals, "NameHasOwner")
 	c.Check(msg.sig, Equals, Signature("s"))
-	c.Check(msg.GetArgs(), DeepEquals, []interface{}{"xyz"})
+	var arg string
+	if err := msg.GetArgs(&arg); err != nil {
+		c.Error(err)
+	}
+	c.Check(arg, Equals, "xyz")
 }
 
 func (s *S) TestMarshalMessage(c *C) {
@@ -53,7 +57,7 @@ func (s *S) TestMarshalMessage(c *C) {
 	msg.Dest = "org.freedesktop.DBus"
 	msg.Iface = "org.freedesktop.DBus"
 	msg.Member = "NameHasOwner"
-	if err := msg.Append("xyz"); err != nil {
+	if err := msg.AppendArgs("xyz"); err != nil {
 		c.Error(err)
 	}
 
@@ -119,5 +123,9 @@ func (s *S) TestNewErrorMessage(c *C) {
 
 	// No signature or data
 	c.Check(reply.sig, Equals, Signature("s"))
-	c.Check(reply.GetArgs(), DeepEquals, []interface{}{"message"})
+	var errorMessage string
+	if err := reply.GetArgs(&errorMessage); err != nil {
+		c.Error(err)
+	}
+	c.Check(errorMessage, Equals, "message")
 }

@@ -113,7 +113,7 @@ func NewErrorMessage(methodCall *Message, errorName string, message string) *Mes
 	msg.replySerial = methodCall.serial
 	msg.Dest = methodCall.Sender
 	msg.ErrorName = errorName
-	if err := msg.Append(message); err != nil {
+	if err := msg.AppendArgs(message); err != nil {
 		panic(err)
 	}
 	return msg
@@ -126,7 +126,7 @@ func (p *Message) setSerial(serial uint32) {
 	p.serial = serial
 }
 
-func (p *Message) Append(args ...interface{}) error {
+func (p *Message) AppendArgs(args ...interface{}) error {
 	enc := newEncoder(p.sig, p.body, p.order)
 	if err := enc.Append(args...); err != nil {
 		return err
@@ -136,12 +136,12 @@ func (p *Message) Append(args ...interface{}) error {
 	return nil
 }
 
-func (p *Message) Get(args ...interface{}) error {
+func (p *Message) GetArgs(args ...interface{}) error {
 	dec := newDecoder(p.sig, p.body, p.order)
 	return dec.Decode(args...)
 }
 
-func (p *Message) GetArgs() []interface{} {
+func (p *Message) GetAllArgs() []interface{} {
 	dec := newDecoder(p.sig, p.body, p.order)
 	args := make([]interface{}, 0)
 	for dec.HasMore() {
@@ -159,7 +159,7 @@ func (p *Message) AsError() error {
 		panic("Only messages of type 'error' can be converted to an error")
 	}
 	var errorMessage string
-	if err := p.Get(&errorMessage); err != nil {
+	if err := p.GetArgs(&errorMessage); err != nil {
 		// Ignore error
 		errorMessage = ""
 	}

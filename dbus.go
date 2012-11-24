@@ -292,7 +292,7 @@ func (p *Connection) _SendHello() error {
 	if reply.Type == TypeError {
 		return reply.AsError()
 	}
-	if err := reply.Get(&p.uniqName); err != nil {
+	if err := reply.GetArgs(&p.uniqName); err != nil {
 		return err
 	}
 	return nil
@@ -305,7 +305,7 @@ func (p *Connection) _GetIntrospect(dest string, path ObjectPath) Introspect {
 	if err != nil {
 		return nil
 	}
-	if v, ok := reply.GetArgs()[0].(string); ok {
+	if v, ok := reply.GetAllArgs()[0].(string); ok {
 		if intro, err := NewIntrospect(v); err == nil {
 			return intro
 		}
@@ -338,7 +338,7 @@ func (p *Connection) Call(method *Method, args ...interface{}) ([]interface{}, e
 	iface := method.iface
 	msg := NewMethodCallMessage(iface.obj.dest, iface.obj.path, iface.name, method.data.GetName())
 	if len(args) > 0 {
-		if err := msg.Append(args...); err != nil {
+		if err := msg.AppendArgs(args...); err != nil {
 			return nil, err
 		}
 	}
@@ -350,7 +350,7 @@ func (p *Connection) Call(method *Method, args ...interface{}) ([]interface{}, e
 	if reply.Type == TypeError {
 		return nil, reply.AsError()
 	}
-	return reply.GetArgs(), nil
+	return reply.GetAllArgs(), nil
 }
 
 // Emit a signal with the given arguments.
@@ -359,7 +359,7 @@ func (p *Connection) Emit(signal *Signal, args ...interface{}) error {
 
 	msg := NewSignalMessage(iface.obj.path, iface.name, signal.data.GetName())
 	msg.Dest = iface.obj.dest
-	if err := msg.Append(args...); err != nil {
+	if err := msg.AppendArgs(args...); err != nil {
 		return err
 	}
 
@@ -380,7 +380,7 @@ func (p *Connection) Object(dest string, path ObjectPath) *Object {
 // Handle received signals.
 func (p *Connection) Handle(rule *MatchRule, handler func(*Message)) {
 	method := NewMethodCallMessage("org.freedesktop.DBus", "/org/freedesktop/DBus", "org.freedesktop.DBus", "AddMatch")
-	method.Append(rule.String())
+	method.AppendArgs(rule.String())
 
 	reply, err := p.SendWithReply(method)
 	if err != nil {
