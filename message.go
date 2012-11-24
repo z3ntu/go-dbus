@@ -154,67 +154,59 @@ type headerField struct {
 	Value Variant
 }
 
-func (p *Message) _BufferToMessage(buff []byte) (int, error) {
+func _Unmarshal(buff []byte) (*Message, error) {
 	if len(buff) < 16 {
-		return 0, errors.New("Message buffer too short")
+		return nil, errors.New("Message buffer too short")
 	}
+
+	msg := newMessage()
 	switch buff[0] {
 	case 'l':
-		p.order = binary.LittleEndian
+		msg.order = binary.LittleEndian
 	case 'B':
-		p.order = binary.BigEndian
+		msg.order = binary.BigEndian
 	default:
-		return 0, errors.New("Unknown message endianness: " + string(buff[0]))
+		return nil, errors.New("Unknown message endianness: " + string(buff[0]))
 	}
-	dec := newDecoder("yyyyuua(yv)", buff, p.order)
+	dec := newDecoder("yyyyuua(yv)", buff, msg.order)
 	var msgOrder, msgType, msgFlags, msgProtocol byte
 	var msgBodyLength, msgSerial uint32
 	fields := make([]headerField, 0, 10)
 	if err := dec.Decode(&msgOrder, &msgType, &msgFlags, &msgProtocol, &msgBodyLength, &msgSerial, &fields); err != nil {
-		return 0, err
+		return nil,  err
 	}
-	p.Type = MessageType(msgType)
-	p.Flags = MessageFlag(msgFlags)
-	p.Protocol = int(msgProtocol)
-	p.serial = msgSerial
+	msg.Type = MessageType(msgType)
+	msg.Flags = MessageFlag(msgFlags)
+	msg.Protocol = int(msgProtocol)
+	msg.serial = msgSerial
 
 	for _, field := range fields {
 		switch field.Code {
 		case 1:
-			p.Path = field.Value.Value.(ObjectPath)
+			msg.Path = field.Value.Value.(ObjectPath)
 		case 2:
-			p.Iface = field.Value.Value.(string)
+			msg.Iface = field.Value.Value.(string)
 		case 3:
-			p.Member = field.Value.Value.(string)
+			msg.Member = field.Value.Value.(string)
 		case 4:
-			p.ErrorName = field.Value.Value.(string)
+			msg.ErrorName = field.Value.Value.(string)
 		case 5:
-			p.replySerial = field.Value.Value.(uint32)
+			msg.replySerial = field.Value.Value.(uint32)
 		case 6:
-			p.Dest = field.Value.Value.(string)
+			msg.Dest = field.Value.Value.(string)
 		case 7:
-			p.Sender = field.Value.Value.(string)
+			msg.Sender = field.Value.Value.(string)
 		case 8:
-			p.sig = field.Value.Value.(Signature)
+			msg.sig = field.Value.Value.(Signature)
 		}
 	}
 
 	dec.align(8)
-	p.body = dec.Remainder()
-	if len(p.body) != int(msgBodyLength) {
-		return 0, errors.New("Body length incorrect")
+	msg.body = dec.Remainder()
+	if len(msg.body) != int(msgBodyLength) {
+		return nil, errors.New("Body length incorrect")
 	}
-	idx := dec.dataOffset
-	return idx, nil
-}
-
-func _Unmarshal(buff []byte) (*Message, int, error) {
-	msg := newMessage()
-	idx, e := msg._BufferToMessage(buff)
-	if e != nil {
-		return nil, 0, e
-	}
-	return msg, idx, nil
+	return msg, nil
 }
 
 func (p *Message) _Marshal() ([]byte, error) {

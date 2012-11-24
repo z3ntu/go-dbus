@@ -31,7 +31,7 @@ var testMessage = []byte{
 
 func (s *S) TestUnmarshalMessage(c *C) {
 
-	msg, _, err := _Unmarshal(testMessage)
+	msg, err := _Unmarshal(testMessage)
 	if nil != err {
 		c.Error(err)
 	}

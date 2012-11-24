@@ -293,7 +293,7 @@ func (p *Connection) _MessageDispatch(msg *Message) {
 }
 
 func (p *Connection) _PopMessage() (*Message, error) {
-	msg, _, err := _Unmarshal(p.buffer.Bytes())
+	msg, err := _Unmarshal(p.buffer.Bytes())
 	if err != nil {
 		return nil, err
 	}
