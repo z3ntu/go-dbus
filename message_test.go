@@ -41,7 +41,7 @@ func (s *S) TestUnmarshalMessage(c *C) {
 	c.Check(msg.Iface, Equals, "org.freedesktop.DBus")
 	c.Check(msg.Member, Equals, "NameHasOwner")
 	c.Check(msg.sig, Equals, Signature("s"))
-	c.Check(msg.params, DeepEquals, []interface{}{"xyz"})
+	c.Check(msg.GetArgs(), DeepEquals, []interface{}{"xyz"})
 }
 
 func (s *S) TestMarshalMessage(c *C) {
@@ -53,8 +53,9 @@ func (s *S) TestMarshalMessage(c *C) {
 	msg.Dest = "org.freedesktop.DBus"
 	msg.Iface = "org.freedesktop.DBus"
 	msg.Member = "NameHasOwner"
-	msg.sig = "s"
-	msg.params = []interface{}{"xyz"}
+	if err := msg.Append("xyz"); err != nil {
+		c.Error(err)
+	}
 
 	buff, err := msg._Marshal()
 	if err != nil {
@@ -74,7 +75,7 @@ func (s* S) TestNewMethodCallMessage(c *C) {
 
 	// No signature or data
 	c.Check(msg.sig, Equals, Signature(""))
-	c.Check(msg.params, DeepEquals, []interface{}{})
+	c.Check(msg.body, DeepEquals, []byte{})
 }
 
 func (s *S) TestNewMethodReturnMessage(c *C) {
@@ -89,7 +90,7 @@ func (s *S) TestNewMethodReturnMessage(c *C) {
 
 	// No signature or data
 	c.Check(reply.sig, Equals, Signature(""))
-	c.Check(reply.params, DeepEquals, []interface{}{})
+	c.Check(reply.body, DeepEquals, []byte{})
 }
 
 func (s *S) TestNewSignalMessage(c *C) {
@@ -102,7 +103,7 @@ func (s *S) TestNewSignalMessage(c *C) {
 
 	// No signature or data
 	c.Check(msg.sig, Equals, Signature(""))
-	c.Check(msg.params, DeepEquals, []interface{}{})
+	c.Check(msg.body, DeepEquals, []byte{})
 }
 
 func (s *S) TestNewErrorMessage(c *C) {
@@ -118,5 +119,5 @@ func (s *S) TestNewErrorMessage(c *C) {
 
 	// No signature or data
 	c.Check(reply.sig, Equals, Signature("s"))
-	c.Check(reply.params, DeepEquals, []interface{}{"message"})
+	c.Check(reply.GetArgs(), DeepEquals, []interface{}{"message"})
 }

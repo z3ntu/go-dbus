@@ -48,6 +48,10 @@ func (self *decoder) HasMore() bool {
 	return self.sigOffset < len(self.signature)
 }
 
+func (self *decoder) Remainder() []byte {
+	return self.data[self.dataOffset:]
+}
+
 func (self *decoder) readByte() (byte, error) {
 	if len(self.data) < self.dataOffset + 1 {
 		return 0, bufferOverrunError

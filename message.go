@@ -3,7 +3,6 @@ package dbus
 import (
 	"encoding/binary"
 	"errors"
-	"reflect"
 )
 
 // See the D-Bus tutorial for information about message types.
@@ -36,32 +35,35 @@ const (
 )
 
 type Message struct {
+	order       binary.ByteOrder
 	Type        MessageType
 	Flags       MessageFlag
 	Protocol    int
 	bodyLength  int
+	serial      uint32
+	// header fields
 	Path        ObjectPath
-	Dest        string
 	Iface       string
 	Member      string
-	sig         Signature
-	params      []interface{}
-	serial      uint32
-	replySerial uint32
 	ErrorName   string
+	replySerial uint32
+	Dest        string
 	Sender      string
+	sig         Signature
+	body        []byte
 }
 
 // Create a new message with Flags == 0 and Protocol == 1.
 func newMessage() *Message {
 	msg := new(Message)
 
+	msg.order = binary.LittleEndian
 	msg.serial = 0
 	msg.replySerial = 0
 	msg.Flags = 0
 	msg.Protocol = 1
 
-	msg.params = make([]interface{}, 0)
+	msg.body = []byte{}
 
 	return msg
 }
@@ -111,9 +113,8 @@ func NewErrorMessage(methodCall *Message, errorName string, message string) *Mes
 	msg.replySerial = methodCall.serial
 	msg.Dest = methodCall.Sender
 	msg.ErrorName = errorName
-	if message != "" {
-		msg.sig = "s"
-		msg.params = []interface{}{message}
+	if err := msg.Append(message); err != nil {
+		panic(err)
 	}
 	return msg
 }
@@ -126,19 +127,26 @@ func (p *Message) setSerial(serial uint32) {
 }
 
 func (p *Message) Append(args ...interface{}) error {
-	p.params = append(p.params, args...)
-	for _, arg := range(args) {
-		argSig, err := getSignature(reflect.ValueOf(arg).Type())
-		if err != nil {
-			return err
-		}
-		p.sig += argSig
+	enc := newEncoder(p.sig, p.body, p.order)
+	if err := enc.Append(args...); err != nil {
+		return err
 	}
+	p.sig = enc.signature
+	p.body = enc.data.Bytes()
 	return nil
 }
 
 func (p *Message) GetArgs() []interface{} {
-	return p.params
+	dec := newDecoder(p.sig, p.body, p.order)
+	args := make([]interface{}, 0)
+	for dec.HasMore() {
+		var arg interface{}
+		if err := dec.Decode(&arg); err != nil {
+			panic(err)
+		}
+		args = append(args, arg)
+	}
+	return args
 }
 
 type headerField struct {
@@ -150,16 +158,15 @@ func (p *Message) _BufferToMessage(buff []byte) (int, error) {
 	if len(buff) < 16 {
 		return 0, errors.New("Message buffer too short")
 	}
-	var order binary.ByteOrder
 	switch buff[0] {
 	case 'l':
-		order = binary.LittleEndian
+		p.order = binary.LittleEndian
 	case 'B':
-		order = binary.BigEndian
+		p.order = binary.BigEndian
 	default:
 		return 0, errors.New("Unknown message endianness: " + string(buff[0]))
 	}
-	dec := newDecoder("yyyyuua(yv)", buff, order)
+	dec := newDecoder("yyyyuua(yv)", buff, p.order)
 	var msgOrder, msgType, msgFlags, msgProtocol byte
 	var msgBodyLength, msgSerial uint32
 	fields := make([]headerField, 0, 10)
@@ -169,7 +176,6 @@ func (p *Message) _BufferToMessage(buff []byte) (int, error) {
 	p.Type = MessageType(msgType)
 	p.Flags = MessageFlag(msgFlags)
 	p.Protocol = int(msgProtocol)
-	p.bodyLength = int(msgBodyLength)
 	p.serial = msgSerial
 
 	for _, field := range fields {
@@ -194,16 +200,9 @@ func (p *Message) _BufferToMessage(buff []byte) (int, error) {
 	}
 
 	dec.align(8)
-	if 0 < p.bodyLength {
-		dec.signature = Signature(p.sig)
-		dec.sigOffset = 0
-		for dec.HasMore() {
-			var param interface{}
-			if err := dec.Decode(&param); err != nil {
-				return 0, err
-			}
-			p.params = append(p.params, param)
-		}
+	p.body = dec.Remainder()
+	if len(p.body) != int(msgBodyLength) {
+		return 0, errors.New("Body length incorrect")
 	}
 	idx := dec.dataOffset
 	return idx, nil
@@ -219,11 +218,6 @@ func _Unmarshal(buff []byte) (*Message, int, error) {
 }
 
 func (p *Message) _Marshal() ([]byte, error) {
-	var body encoder
-	if err := body.Append(p.params...); err != nil {
-		return nil, err
-	}
-
 	// encode optional fields
 	fields := make([]headerField, 0, 10)
 	if p.Path != "" {
@@ -234,6 +228,9 @@ func (p *Message) _Marshal() ([]byte, error) {
 	}
 	if p.Member != "" {
 		fields = append(fields, headerField{3, Variant{p.Member}})
+	}
+	if p.ErrorName != "" {
+		fields = append(fields, headerField{4, Variant{p.ErrorName}})
 	}
 	if p.replySerial != 0 {
 		fields = append(fields, headerField{5, Variant{p.replySerial}})
@@ -248,14 +245,24 @@ func (p *Message) _Marshal() ([]byte, error) {
 		fields = append(fields, headerField{8, Variant{p.sig}})
 	}
 
-	var message encoder
-	if err := message.Append(byte('l'), byte(p.Type), byte(p.Flags), byte(p.Protocol), uint32(body.data.Len()), p.serial, fields); err != nil {
+	var orderTag byte
+	switch p.order {
+	case binary.LittleEndian:
+		orderTag = 'l'
+	case binary.BigEndian:
+		orderTag = 'B'
+	default:
+		return nil, errors.New("Unknown byte order: " + p.order.String())
+	}
+
+	message := newEncoder("", nil, p.order)
+	if err := message.Append(orderTag, byte(p.Type), byte(p.Flags), byte(p.Protocol), uint32(len(p.body)), p.serial, fields); err != nil {
 		return nil, err
 	}
 
 	// append the body
 	message.align(8)
-	message.data.Write(body.data.Bytes())
+	message.data.Write(p.body)
 
 	return message.data.Bytes(), nil
 }

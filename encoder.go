@@ -10,7 +10,16 @@ import (
 type encoder struct {
 	signature Signature
 	data bytes.Buffer
+	order binary.ByteOrder
 	offset int
+}
+
+func newEncoder(signature Signature, data []byte, order binary.ByteOrder) *encoder {
+	enc := &encoder{signature: signature, order: order}
+	if data != nil {
+		enc.data.Write(data)
+	}
+	return enc
 }
 
 func (self *encoder) align(alignment int) {
@@ -58,35 +67,35 @@ func (self *encoder) appendValue(v reflect.Value) error {
 		} else {
 			uintval = 0
 		}
-		binary.Write(&self.data, binary.LittleEndian, uintval)
+		binary.Write(&self.data, self.order, uintval)
 		return nil
 	case reflect.Int16:
 		self.align(2)
-		binary.Write(&self.data, binary.LittleEndian, int16(v.Int()))
+		binary.Write(&self.data, self.order, int16(v.Int()))
 		return nil
 	case reflect.Uint16:
 		self.align(2)
-		binary.Write(&self.data, binary.LittleEndian, uint16(v.Uint()))
+		binary.Write(&self.data, self.order, uint16(v.Uint()))
 		return nil
 	case reflect.Int32:
 		self.align(4)
-		binary.Write(&self.data, binary.LittleEndian, int32(v.Int()))
+		binary.Write(&self.data, self.order, int32(v.Int()))
 		return nil
 	case reflect.Uint32:
 		self.align(4)
-		binary.Write(&self.data, binary.LittleEndian, uint32(v.Uint()))
+		binary.Write(&self.data, self.order, uint32(v.Uint()))
 		return nil
 	case reflect.Int64:
 		self.align(8)
-		binary.Write(&self.data, binary.LittleEndian, int64(v.Int()))
+		binary.Write(&self.data, self.order, int64(v.Int()))
 		return nil
 	case reflect.Uint64:
 		self.align(8)
-		binary.Write(&self.data, binary.LittleEndian, uint64(v.Uint()))
+		binary.Write(&self.data, self.order, uint64(v.Uint()))
 		return nil
 	case reflect.Float64:
 		self.align(8)
-		binary.Write(&self.data, binary.LittleEndian, float64(v.Float()))
+		binary.Write(&self.data, self.order, float64(v.Float()))
 		return nil
 	case reflect.String:
 		s := v.String()
@@ -96,7 +105,7 @@ func (self *encoder) appendValue(v reflect.Value) error {
 			self.data.WriteByte(byte(len(s)))
 		} else {
 			self.align(4)
-			binary.Write(&self.data, binary.LittleEndian, uint32(len(s)))
+			binary.Write(&self.data, self.order, uint32(len(s)))
 		}
 		self.data.Write([]byte(s))
 		self.data.WriteByte(0)
@@ -105,6 +114,7 @@ func (self *encoder) appendValue(v reflect.Value) error {
 		// Marshal array contents to a separate buffer so we
 		// can find its length.
 		var content encoder
+		content.order = self.order
 		// Offset alignment by current data and length field
 		content.offset = self.data.Len() + 4
 		for i := 0; i < v.Len(); i++ {
@@ -113,13 +123,14 @@ func (self *encoder) appendValue(v reflect.Value) error {
 			}
 		}
 		self.align(4)
-		binary.Write(&self.data, binary.LittleEndian, uint32(content.data.Len()))
+		binary.Write(&self.data, self.order, uint32(content.data.Len()))
 		self.data.Write(content.data.Bytes())
 		return nil
 	case reflect.Map:
 		// Marshal array contents to a separate buffer so we
 		// can find its length.
 		var content encoder
+		content.order = self.order
 		// Offset alignment by current data and length field
 		content.offset = self.data.Len() + 4
 		for _, key := range v.MapKeys() {
@@ -132,7 +143,7 @@ func (self *encoder) appendValue(v reflect.Value) error {
 			}
 		}
 		self.align(4)
-		binary.Write(&self.data, binary.LittleEndian, uint32(content.data.Len()))
+		binary.Write(&self.data, self.order, uint32(content.data.Len()))
 		self.data.Write(content.data.Bytes())
 		return nil
 	case reflect.Struct:

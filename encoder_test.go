@@ -1,9 +1,12 @@
 package dbus
 
-import . "launchpad.net/gocheck"
+import (
+	"encoding/binary"
+	. "launchpad.net/gocheck"
+)
 
 func (s *S) TestEncoderAlign(c *C) {
-	var enc encoder
+	enc := newEncoder("", nil, binary.LittleEndian)
 	enc.data.WriteByte(1)
 	enc.align(1)
 	c.Check(enc.data.Bytes(), DeepEquals, []byte{1})
@@ -16,7 +19,7 @@ func (s *S) TestEncoderAlign(c *C) {
 }
 
 func (s *S) TestEncoderAppendByte(c *C) {
-	var enc encoder
+	enc := newEncoder("", nil, binary.LittleEndian)
 	if err := enc.Append(byte(42)); err != nil {
 		c.Error(err)
 	}
@@ -25,7 +28,7 @@ func (s *S) TestEncoderAppendByte(c *C) {
 }
 
 func (s *S) TestEncoderAppendBoolean(c *C) {
-	var enc encoder
+	enc := newEncoder("", nil, binary.LittleEndian)
 	if err := enc.Append(true); err != nil {
 		c.Error(err)
 	}
@@ -34,7 +37,7 @@ func (s *S) TestEncoderAppendBoolean(c *C) {
 }
 
 func (s *S) TestEncoderAppendInt16(c *C) {
-	var enc encoder
+	enc := newEncoder("", nil, binary.LittleEndian)
 	if err := enc.Append(int16(42)); err != nil {
 		c.Error(err)
 	}
@@ -43,7 +46,7 @@ func (s *S) TestEncoderAppendInt16(c *C) {
 }
 
 func (s *S) TestEncoderAppendUint16(c *C) {
-	var enc encoder
+	enc := newEncoder("", nil, binary.LittleEndian)
 	if err := enc.Append(uint16(42)); err != nil {
 		c.Error(err)
 	}
@@ -52,7 +55,7 @@ func (s *S) TestEncoderAppendUint16(c *C) {
 }
 
 func (s *S) TestEncoderAppendInt32(c *C) {
-	var enc encoder
+	enc := newEncoder("", nil, binary.LittleEndian)
 	if err := enc.Append(int32(42)); err != nil {
 		c.Error(err)
 	}
@@ -61,7 +64,7 @@ func (s *S) TestEncoderAppendInt32(c *C) {
 }
 
 func (s *S) TestEncoderAppendUint32(c *C) {
-	var enc encoder
+	enc := newEncoder("", nil, binary.LittleEndian)
 	if err := enc.Append(uint32(42)); err != nil {
 		c.Error(err)
 	}
@@ -70,7 +73,7 @@ func (s *S) TestEncoderAppendUint32(c *C) {
 }
 
 func (s *S) TestEncoderAppendInt64(c *C) {
-	var enc encoder
+	enc := newEncoder("", nil, binary.LittleEndian)
 	if err := enc.Append(int64(42)); err != nil {
 		c.Error(err)
 	}
@@ -79,7 +82,7 @@ func (s *S) TestEncoderAppendInt64(c *C) {
 }
 
 func (s *S) TestEncoderAppendUint64(c *C) {
-	var enc encoder
+	enc := newEncoder("", nil, binary.LittleEndian)
 	if err := enc.Append(uint64(42)); err != nil {
 		c.Error(err)
 	}
@@ -88,7 +91,7 @@ func (s *S) TestEncoderAppendUint64(c *C) {
 }
 
 func (s *S) TestEncoderAppendFloat64(c *C) {
-	var enc encoder
+	enc := newEncoder("", nil, binary.LittleEndian)
 	if err := enc.Append(float64(42.0)); err != nil {
 		c.Error(err)
 	}
@@ -97,7 +100,7 @@ func (s *S) TestEncoderAppendFloat64(c *C) {
 }
 
 func (s *S) TestEncoderAppendString(c *C) {
-	var enc encoder
+	enc := newEncoder("", nil, binary.LittleEndian)
 	if err := enc.Append("hello"); err != nil {
 		c.Error(err)
 	}
@@ -109,7 +112,7 @@ func (s *S) TestEncoderAppendString(c *C) {
 }
 
 func (s *S) TestEncoderAppendObjectPath(c *C) {
-	var enc encoder
+	enc := newEncoder("", nil, binary.LittleEndian)
 	if err := enc.Append(ObjectPath("/foo")); err != nil {
 		c.Error(err)
 	}
@@ -126,7 +129,7 @@ func (f *testObject) GetObjectPath() ObjectPath {
 }
 
 func (s *S) TestEncoderAppendObject(c *C) {
-	var enc encoder
+	enc := newEncoder("", nil, binary.LittleEndian)
 	if err := enc.Append(&testObject{}); err != nil {
 		c.Error(err)
 	}
@@ -138,7 +141,7 @@ func (s *S) TestEncoderAppendObject(c *C) {
 }
 
 func (s *S) TestEncoderAppendSignature(c *C) {
-	var enc encoder
+	enc := newEncoder("", nil, binary.LittleEndian)
 	if err := enc.Append(Signature("a{si}")); err != nil {
 		c.Error(err)
 	}
@@ -150,7 +153,7 @@ func (s *S) TestEncoderAppendSignature(c *C) {
 }
 
 func (s *S) TestEncoderAppendArray(c *C) {
-	var enc encoder
+	enc := newEncoder("", nil, binary.LittleEndian)
 	if err := enc.Append([]int32{42, 420}); err != nil {
 		c.Error(err)
 	}
@@ -162,7 +165,7 @@ func (s *S) TestEncoderAppendArray(c *C) {
 }
 
 func (s *S) TestEncoderAppendMap(c *C) {
-	var enc encoder
+	enc := newEncoder("", nil, binary.LittleEndian)
 	if err := enc.Append(map[string]bool{"true": true}); err != nil {
 		c.Error(err)
 	}
@@ -176,7 +179,7 @@ func (s *S) TestEncoderAppendMap(c *C) {
 }
 
 func (s *S) TestEncoderAppendStruct(c *C) {
-	var enc encoder
+	enc := newEncoder("", nil, binary.LittleEndian)
 	type sample struct {
 		one int32
 		two string
@@ -191,7 +194,7 @@ func (s *S) TestEncoderAppendStruct(c *C) {
 }
 
 func (s *S) TestEncoderAppendVariant(c *C) {
-	var enc encoder
+	enc := newEncoder("", nil, binary.LittleEndian)
 	if err := enc.Append(&Variant{int32(42)}); err != nil {
 		c.Error(err)
 	}
@@ -203,7 +206,7 @@ func (s *S) TestEncoderAppendVariant(c *C) {
 }
 
 func (s *S) TestEncoderAppendAlignment(c *C) {
-	var enc encoder
+	enc := newEncoder("", nil, binary.LittleEndian)
 	if err := enc.Append(byte(42), int16(42), true, int32(42), int64(42)); err != nil {
 		c.Error(err)
 	}
