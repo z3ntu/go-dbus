@@ -38,7 +38,7 @@ type Message struct {
 	order       binary.ByteOrder
 	Type        MessageType
 	Flags       MessageFlag
-	Protocol    int
+	Protocol    uint8
 	bodyLength  int
 	serial      uint32
 	// header fields
@@ -186,16 +186,12 @@ func _Unmarshal(buff []byte) (*Message, error) {
 		return nil, errors.New("Unknown message endianness: " + string(buff[0]))
 	}
 	dec := newDecoder("yyyyuua(yv)", buff, msg.order)
-	var msgOrder, msgType, msgFlags, msgProtocol byte
-	var msgBodyLength, msgSerial uint32
+	var msgOrder byte
+	var msgBodyLength uint32
 	fields := make([]headerField, 0, 10)
-	if err := dec.Decode(&msgOrder, &msgType, &msgFlags, &msgProtocol, &msgBodyLength, &msgSerial, &fields); err != nil {
+	if err := dec.Decode(&msgOrder, &msg.Type, &msg.Flags, &msg.Protocol, &msgBodyLength, &msg.serial, &fields); err != nil {
 		return nil,  err
 	}
-	msg.Type = MessageType(msgType)
-	msg.Flags = MessageFlag(msgFlags)
-	msg.Protocol = int(msgProtocol)
-	msg.serial = msgSerial
 
 	for _, field := range fields {
 		switch field.Code {
