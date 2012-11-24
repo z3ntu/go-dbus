@@ -133,7 +133,7 @@ type signalHandler struct {
 type Connection struct {
 	addressMap        map[string]string
 	uniqName          string
-	methodCallReplies map[uint32](func(msg *Message))
+	methodCallReplies map[uint32]chan<- *Message
 	signalMatchRules  []signalHandler
 	conn              net.Conn
 	buffer            *bytes.Buffer
@@ -228,7 +228,7 @@ func Connect(busType StandardBus) (*Connection, error) {
 		return nil, err
 	}
 
-	bus.methodCallReplies = make(map[uint32]func(*Message))
+	bus.methodCallReplies = make(map[uint32]chan<- *Message)
 	bus.signalMatchRules = make([]signalHandler, 0)
 	bus.proxy = bus._GetProxy()
 	bus.buffer = bytes.NewBuffer([]byte{})
@@ -275,10 +275,12 @@ func (p *Connection) _MessageDispatch(msg *Message) {
 	}
 
 	switch msg.Type {
-	case TypeMethodReturn:
+	case TypeMethodCall:
+		fmt.Println("XXX: Method Call:", msg.Iface, msg.Member)
+	case TypeMethodReturn, TypeError:
 		rs := msg.replySerial
-		if replyFunc, ok := p.methodCallReplies[rs]; ok {
-			replyFunc(msg)
+		if replyChan, ok := p.methodCallReplies[rs]; ok {
+			replyChan <- msg
 			delete(p.methodCallReplies, rs)
 		}
 	case TypeSignal:
@@ -287,8 +289,6 @@ func (p *Connection) _MessageDispatch(msg *Message) {
 				handler.proc(msg)
 			}
 		}
-	case TypeError:
-		fmt.Println("ERROR")
 	}
 }
 
@@ -334,22 +334,34 @@ func (p *Connection) nextSerial() (serial uint32) {
 	return
 }
 
-func (p *Connection) _SendSync(msg *Message, callback func(*Message)) error {
+func (p *Connection) Send(msg *Message) error {
 	msg.setSerial(p.nextSerial())
-	seri := uint32(msg.serial)
-	recvChan := make(chan int)
-	p.methodCallReplies[seri] = func(rmsg *Message) {
-		callback(rmsg)
-		recvChan <- 0
-	}
-
 	buff, err := msg._Marshal()
 	if err != nil {
 		return err
 	}
 	p.conn.Write(buff)
-	<-recvChan // synchronize
 	return nil
+}
+
+func (p *Connection) SendWithReply(msg *Message) (*Message, error) {
+	// XXX: also check for "no reply" flag.
+	if msg.Type != TypeMethodCall {
+		panic("Only method calls have replies")
+	}
+	serial := p.nextSerial()
+	msg.setSerial(serial)
+	buff, err := msg._Marshal()
+	if err != nil {
+		return nil, err
+	}
+
+	replyChan := make(chan *Message)
+	p.methodCallReplies[serial] = replyChan
+	p.conn.Write(buff)
+
+	reply := <-replyChan
+	return reply, nil
 }
 
 func (p *Connection) _SendHello() error {
@@ -362,17 +374,16 @@ func (p *Connection) _SendHello() error {
 func (p *Connection) _GetIntrospect(dest string, path ObjectPath) Introspect {
 	msg := NewMethodCallMessage(dest, path, "org.freedesktop.DBus.Introspectable", "Introspect")
 
-	var intro Introspect
-
-	p._SendSync(msg, func(reply *Message) {
-		if v, ok := reply.GetArgs()[0].(string); ok {
-			if i, err := NewIntrospect(v); err == nil {
-				intro = i
-			}
+	reply, err := p.SendWithReply(msg)
+	if err != nil {
+		return nil
+	}
+	if v, ok := reply.GetArgs()[0].(string); ok {
+		if intro, err := NewIntrospect(v); err == nil {
+			return intro
 		}
-	})
-
-	return intro
+	}
+	return nil
 }
 
 // Retrieve an interface by name.
@@ -419,12 +430,11 @@ func (p *Connection) Call(method *Method, args ...interface{}) ([]interface{}, e
 		}
 	}
 
-	var ret []interface{}
-	p._SendSync(msg, func(reply *Message) {
-		ret = reply.GetArgs()
-	})
-
-	return ret, nil
+	reply, err := p.SendWithReply(msg)
+	if err != nil {
+		return nil, err
+	}
+	return reply.GetArgs(), nil
 }
 
 // Emit a signal with the given arguments.
@@ -437,11 +447,7 @@ func (p *Connection) Emit(signal *Signal, args ...interface{}) error {
 		return err
 	}
 
-	msg.setSerial(p.nextSerial())
-	buff, _ := msg._Marshal()
-	_, err := p.conn.Write(buff)
-
-	return err
+	return p.Send(msg)
 }
 
 // Retrieve a specified object.
