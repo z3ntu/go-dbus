@@ -360,12 +360,7 @@ func (p *Connection) _SendHello() error {
 }
 
 func (p *Connection) _GetIntrospect(dest string, path ObjectPath) Introspect {
-	msg := NewMessage()
-	msg.Type = TypeMethodCall
-	msg.Path = path
-	msg.Dest = dest
-	msg.Iface = "org.freedesktop.DBus.Introspectable"
-	msg.Member = "Introspect"
+	msg := NewMethodCallMessage(dest, path, "org.freedesktop.DBus.Introspectable", "Introspect")
 
 	var intro Introspect
 
@@ -417,13 +412,7 @@ func (p *Connection) _GetProxy() *Interface {
 // Call a method with the given arguments.
 func (p *Connection) Call(method *Method, args ...interface{}) ([]interface{}, error) {
 	iface := method.iface
-	msg := NewMessage()
-
-	msg.Type = TypeMethodCall
-	msg.Path = iface.obj.path
-	msg.Iface = iface.name
-	msg.Dest = iface.obj.dest
-	msg.Member = method.data.GetName()
+	msg := NewMethodCallMessage(iface.obj.dest, iface.obj.path, iface.name, method.data.GetName())
 	if len(args) > 0 {
 		if err := msg.Append(args...); err != nil {
 			return nil, err
@@ -442,13 +431,8 @@ func (p *Connection) Call(method *Method, args ...interface{}) ([]interface{}, e
 func (p *Connection) Emit(signal *Signal, args ...interface{}) error {
 	iface := signal.iface
 
-	msg := NewMessage()
-
-	msg.Type = TypeSignal
-	msg.Path = iface.obj.path
-	msg.Iface = iface.name
+	msg := NewSignalMessage(iface.obj.path, iface.name, signal.data.GetName())
 	msg.Dest = iface.obj.dest
-	msg.Member = signal.data.GetName()
 	if err := msg.Append(args...); err != nil {
 		return err
 	}

@@ -45,7 +45,7 @@ func (s *S) TestUnmarshalMessage(c *C) {
 }
 
 func (s *S) TestMarshalMessage(c *C) {
-	msg := NewMessage()
+	msg := newMessage()
 	msg.Type = TypeMethodCall
 	msg.Flags = MessageFlag(0)
 	msg.serial = 1

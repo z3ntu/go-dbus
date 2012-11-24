@@ -53,7 +53,7 @@ type Message struct {
 }
 
 // Create a new message with Flags == 0 and Protocol == 1.
-func NewMessage() *Message {
+func newMessage() *Message {
 	msg := new(Message)
 
 	msg.serial = 0
@@ -67,7 +67,7 @@ func NewMessage() *Message {
 }
 
 func NewMethodCallMessage(destination string, path ObjectPath, iface string, member string) *Message {
-	msg := NewMessage()
+	msg := newMessage()
 	msg.Type = TypeMethodCall
 	msg.Dest = destination
 	msg.Path = path
@@ -83,7 +83,7 @@ func NewMethodReturnMessage(methodCall *Message) *Message {
 	if methodCall.Type != TypeMethodCall {
 		panic("replies should be sent in response to method calls")
 	}
-	msg := NewMessage()
+	msg := newMessage()
 	msg.Type = TypeMethodReturn
 	msg.replySerial = methodCall.serial
 	msg.Dest = methodCall.Sender
@@ -91,7 +91,7 @@ func NewMethodReturnMessage(methodCall *Message) *Message {
 }
 
 func NewSignalMessage(path ObjectPath, iface string, member string) *Message {
-	msg := NewMessage()
+	msg := newMessage()
 	msg.Type = TypeSignal
 	msg.Path = path
 	msg.Iface = iface
@@ -106,7 +106,7 @@ func NewErrorMessage(methodCall *Message, errorName string, message string) *Mes
 	if methodCall.Type != TypeMethodCall {
 		panic("errors should be sent in response to method calls")
 	}
-	msg := NewMessage()
+	msg := newMessage()
 	msg.Type = TypeError
 	msg.replySerial = methodCall.serial
 	msg.Dest = methodCall.Sender
@@ -210,7 +210,7 @@ func (p *Message) _BufferToMessage(buff []byte) (int, error) {
 }
 
 func _Unmarshal(buff []byte) (*Message, int, error) {
-	msg := NewMessage()
+	msg := newMessage()
 	idx, e := msg._BufferToMessage(buff)
 	if e != nil {
 		return nil, 0, e
