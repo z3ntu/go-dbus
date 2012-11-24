@@ -19,7 +19,7 @@ var callTests = []callTest{
 		[]interface{}{
 			"go-dbus", uint32(0),
 			"info", "testing go-dbus", "test_body",
-			[]string{}, map[uint32]interface{}{},
+			[]string{}, map[string]Variant{},
 			int32(2000)},
 		func([]interface{}) error {
 			return nil

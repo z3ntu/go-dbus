@@ -370,7 +370,7 @@ func (p *Connection) _GetIntrospect(dest string, path ObjectPath) Introspect {
 	var intro Introspect
 
 	p._SendSync(msg, func(reply *Message) {
-		if v, ok := reply.Params[0].(string); ok {
+		if v, ok := reply.GetArgs()[0].(string); ok {
 			if i, err := NewIntrospect(v); err == nil {
 				intro = i
 			}
@@ -424,14 +424,15 @@ func (p *Connection) Call(method *Method, args ...interface{}) ([]interface{}, e
 	msg.Iface = iface.name
 	msg.Dest = iface.obj.dest
 	msg.Member = method.data.GetName()
-	msg.Sig = method.data.GetInSignature()
 	if len(args) > 0 {
-		msg.Params = args[:]
+		if err := msg.Append(args...); err != nil {
+			return nil, err
+		}
 	}
 
 	var ret []interface{}
 	p._SendSync(msg, func(reply *Message) {
-		ret = reply.Params
+		ret = reply.GetArgs()
 	})
 
 	return ret, nil
@@ -448,8 +449,9 @@ func (p *Connection) Emit(signal *Signal, args ...interface{}) error {
 	msg.Iface = iface.name
 	msg.Dest = iface.obj.dest
 	msg.Member = signal.data.GetName()
-	msg.Sig = signal.data.GetSignature()
-	msg.Params = args[:]
+	if err := msg.Append(args...); err != nil {
+		return err
+	}
 
 	msg.setSerial(p.nextSerial())
 	buff, _ := msg._Marshal()

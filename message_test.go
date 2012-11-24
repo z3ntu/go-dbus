@@ -40,8 +40,8 @@ func (s *S) TestUnmarshalMessage(c *C) {
 	c.Check(msg.Dest, Equals, "org.freedesktop.DBus")
 	c.Check(msg.Iface, Equals, "org.freedesktop.DBus")
 	c.Check(msg.Member, Equals, "NameHasOwner")
-	c.Check(msg.Sig, Equals, Signature("s"))
-	c.Check(msg.Params, DeepEquals, []interface{}{"xyz"})
+	c.Check(msg.sig, Equals, Signature("s"))
+	c.Check(msg.params, DeepEquals, []interface{}{"xyz"})
 }
 
 func (s *S) TestMarshalMessage(c *C) {
@@ -53,8 +53,8 @@ func (s *S) TestMarshalMessage(c *C) {
 	msg.Dest = "org.freedesktop.DBus"
 	msg.Iface = "org.freedesktop.DBus"
 	msg.Member = "NameHasOwner"
-	msg.Sig = "s"
-	msg.Params = []interface{}{"xyz"}
+	msg.sig = "s"
+	msg.params = []interface{}{"xyz"}
 
 	buff, err := msg._Marshal()
 	if err != nil {

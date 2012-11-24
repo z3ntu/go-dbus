@@ -3,6 +3,7 @@ package dbus
 import (
 	"encoding/binary"
 	"errors"
+	"reflect"
 )
 
 // See the D-Bus tutorial for information about message types.
@@ -43,8 +44,8 @@ type Message struct {
 	Dest        string
 	Iface       string
 	Member      string
-	Sig         Signature
-	Params      []interface{}
+	sig         Signature
+	params      []interface{}
 	serial      uint32
 	replySerial uint32
 	ErrorName   string
@@ -60,7 +61,7 @@ func NewMessage() *Message {
 	msg.Flags = 0
 	msg.Protocol = 1
 
-	msg.Params = make([]interface{}, 0)
+	msg.params = make([]interface{}, 0)
 
 	return msg
 }
@@ -103,8 +104,8 @@ func NewErrorMessage(methodCall *Message, errorName string, message string) *Mes
 	msg.replySerial = methodCall.serial
 	msg.ErrorName = errorName
 	if message != "" {
-		msg.Sig = "s"
-		msg.Params = []interface{}{message}
+		msg.sig = "s"
+		msg.params = []interface{}{message}
 	}
 	return msg
 }
@@ -114,6 +115,22 @@ func (p *Message) setSerial(serial uint32) {
 		panic("Message already has a serial number")
 	}
 	p.serial = serial
+}
+
+func (p *Message) Append(args ...interface{}) error {
+	p.params = append(p.params, args...)
+	for _, arg := range(args) {
+		argSig, err := getSignature(reflect.ValueOf(arg).Type())
+		if err != nil {
+			return err
+		}
+		p.sig += argSig
+	}
+	return nil
+}
+
+func (p *Message) GetArgs() []interface{} {
+	return p.params
 }
 
 type headerField struct {
@@ -164,21 +181,20 @@ func (p *Message) _BufferToMessage(buff []byte) (int, error) {
 		case 7:
 			// FIXME
 		case 8:
-			p.Sig = field.Value.Value.(Signature)
+			p.sig = field.Value.Value.(Signature)
 		}
 	}
 
 	dec.align(8)
 	if 0 < p.bodyLength {
-		dec.signature = Signature(p.Sig)
+		dec.signature = Signature(p.sig)
 		dec.sigOffset = 0
-		p.Params = make([]interface{}, 0)
 		for dec.HasMore() {
 			var param interface{}
 			if err := dec.Decode(&param); err != nil {
 				return 0, err
 			}
-			p.Params = append(p.Params, param)
+			p.params = append(p.params, param)
 		}
 	}
 	idx := dec.dataOffset
@@ -196,7 +212,7 @@ func _Unmarshal(buff []byte) (*Message, int, error) {
 
 func (p *Message) _Marshal() ([]byte, error) {
 	var body encoder
-	if err := body.Append(p.Params...); err != nil {
+	if err := body.Append(p.params...); err != nil {
 		return nil, err
 	}
 
@@ -217,8 +233,8 @@ func (p *Message) _Marshal() ([]byte, error) {
 	if p.Dest != "" {
 		fields = append(fields, headerField{6, Variant{p.Dest}})
 	}
-	if p.Sig != "" {
-		fields = append(fields, headerField{8, Variant{p.Sig}})
+	if p.sig != "" {
+		fields = append(fields, headerField{8, Variant{p.sig}})
 	}
 
 	var message encoder
