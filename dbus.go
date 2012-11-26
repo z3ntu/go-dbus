@@ -52,15 +52,16 @@ type signalHandler struct {
 }
 
 type Connection struct {
-	addressMap        map[string]string
-	uniqName          string
-	methodCallReplies map[uint32]chan<- *Message
-	signalMatchRules  []signalHandler
-	conn              net.Conn
-	buffer            *bytes.Buffer
+	addressMap         map[string]string
+	uniqName           string
+	methodCallReplies  map[uint32]chan<- *Message
+	objectPathHandlers map[ObjectPath]chan<- *Message
+	signalMatchRules   []signalHandler
+	conn               net.Conn
+	buffer             *bytes.Buffer
 
-	lastSerialMutex   sync.Mutex
-	lastSerial        uint32
+	lastSerialMutex    sync.Mutex
+	lastSerial         uint32
 }
 
 type Object struct {
@@ -149,6 +150,7 @@ func Connect(busType StandardBus) (*Connection, error) {
 	}
 
 	bus.methodCallReplies = make(map[uint32]chan<- *Message)
+	bus.objectPathHandlers = make(map[ObjectPath]chan<- *Message)
 	bus.signalMatchRules = make([]signalHandler, 0)
 	bus.buffer = bytes.NewBuffer([]byte{})
 	return bus, nil
@@ -195,9 +197,28 @@ func (p *Connection) _MessageDispatch(msg *Message) {
 
 	switch msg.Type {
 	case TypeMethodCall:
-		fmt.Println("XXX: Method Call:", msg.Iface, msg.Member)
+		switch {
+		case msg.Iface == "org.freedesktop.DBus.Peer" && msg.Member == "Ping":
+			reply := NewMethodReturnMessage(msg)
+			_ = p.Send(reply)
+		case msg.Iface == "org.freedesktop.DBus.Peer" && msg.Member == "GetMachineId":
+			// Should be returning the UUID found in /var/lib/dbus/machine-id
+			fmt.Println("XXX: handle GetMachineId")
+			reply := NewMethodReturnMessage(msg)
+			_ = reply.AppendArgs("machine-id")
+			_ = p.Send(reply)
+		default:
+			// XXX: need to lock the map
+			if handler, ok := p.objectPathHandlers[msg.Path]; ok {
+				handler <- msg
+			} else {
+				reply := NewErrorMessage(msg, "org.freedesktop.DBus.Error.UnknownObject", "Unknown object path " + string(msg.Path))
+				_ = p.Send(reply)
+			}
+		}
 	case TypeMethodReturn, TypeError:
 		rs := msg.replySerial
+		// XXX: need to lock the map
 		if replyChan, ok := p.methodCallReplies[rs]; ok {
 			replyChan <- msg
 			delete(p.methodCallReplies, rs)
@@ -281,6 +302,22 @@ func (p *Connection) SendWithReply(msg *Message) (*Message, error) {
 
 	reply := <-replyChan
 	return reply, nil
+}
+
+func (p *Connection) RegisterObjectPath(path ObjectPath, handler chan<- *Message) {
+	// XXX: need to lock the map
+	if _, ok := p.objectPathHandlers[path]; ok {
+		panic("A handler has already been registered for " + string(path))
+	}
+	p.objectPathHandlers[path] = handler
+}
+
+func (p *Connection) UnregisterObjectPath(path ObjectPath) {
+	// XXX: need to lock the map
+	if _, ok := p.objectPathHandlers[path]; !ok {
+		panic("No handler registered for " + string(path))
+	}
+	delete(p.objectPathHandlers, path)
 }
 
 func (p *Connection) _SendHello() error {
