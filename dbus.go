@@ -54,11 +54,13 @@ type signalHandler struct {
 type Connection struct {
 	addressMap         map[string]string
 	uniqName           string
+	conn               net.Conn
+	buffer             *bytes.Buffer
+
+	handlerMutex       sync.Mutex // covers the next three
 	methodCallReplies  map[uint32]chan<- *Message
 	objectPathHandlers map[ObjectPath]chan<- *Message
 	signalMatchRules   []signalHandler
-	conn               net.Conn
-	buffer             *bytes.Buffer
 
 	lastSerialMutex    sync.Mutex
 	lastSerial         uint32
@@ -209,7 +211,10 @@ func (p *Connection) _MessageDispatch(msg *Message) {
 			_ = p.Send(reply)
 		default:
 			// XXX: need to lock the map
-			if handler, ok := p.objectPathHandlers[msg.Path]; ok {
+			p.handlerMutex.Lock()
+			handler, ok := p.objectPathHandlers[msg.Path]
+			p.handlerMutex.Unlock()
+			if ok {
 				handler <- msg
 			} else {
 				reply := NewErrorMessage(msg, "org.freedesktop.DBus.Error.UnknownObject", "Unknown object path " + string(msg.Path))
@@ -217,13 +222,18 @@ func (p *Connection) _MessageDispatch(msg *Message) {
 			}
 		}
 	case TypeMethodReturn, TypeError:
+		p.handlerMutex.Lock()
 		rs := msg.replySerial
-		// XXX: need to lock the map
-		if replyChan, ok := p.methodCallReplies[rs]; ok {
-			replyChan <- msg
+		replyChan, ok := p.methodCallReplies[rs]
+		if ok {
 			delete(p.methodCallReplies, rs)
 		}
+		p.handlerMutex.Unlock()
+		if ok {
+			replyChan <- msg
+		}
 	case TypeSignal:
+		// XXX: grab handlerMutex when looking up signal handler.
 		for _, handler := range p.signalMatchRules {
 			if handler.mr._Match(msg) {
 				handler.proc(msg)
@@ -297,7 +307,10 @@ func (p *Connection) SendWithReply(msg *Message) (*Message, error) {
 	}
 
 	replyChan := make(chan *Message)
+	p.handlerMutex.Lock()
 	p.methodCallReplies[serial] = replyChan
+	p.handlerMutex.Unlock()
+
 	p.conn.Write(buff)
 
 	reply := <-replyChan
@@ -305,7 +318,8 @@ func (p *Connection) SendWithReply(msg *Message) (*Message, error) {
 }
 
 func (p *Connection) RegisterObjectPath(path ObjectPath, handler chan<- *Message) {
-	// XXX: need to lock the map
+	p.handlerMutex.Lock()
+	defer p.handlerMutex.Unlock()
 	if _, ok := p.objectPathHandlers[path]; ok {
 		panic("A handler has already been registered for " + string(path))
 	}
@@ -313,7 +327,8 @@ func (p *Connection) RegisterObjectPath(path ObjectPath, handler chan<- *Message
 }
 
 func (p *Connection) UnregisterObjectPath(path ObjectPath) {
-	// XXX: need to lock the map
+	p.handlerMutex.Lock()
+	defer p.handlerMutex.Unlock()
 	if _, ok := p.objectPathHandlers[path]; !ok {
 		panic("No handler registered for " + string(path))
 	}
