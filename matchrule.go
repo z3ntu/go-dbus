@@ -1,6 +1,5 @@
 package dbus
 
-import "reflect"
 import "fmt"
 import "strings"
 
@@ -8,35 +7,47 @@ import "strings"
 // Any missing/invalid fields are not matched against.
 type MatchRule struct {
 	Type      MessageType
+	Sender    string
+	Path      ObjectPath
 	Interface string
 	Member    string
-	Path      ObjectPath
 }
 
 // A string representation af the MatchRule (D-Bus variant map).
 func (p *MatchRule) String() string {
-	strslice := []string{}
-
-	v := reflect.Indirect(reflect.ValueOf(p))
-	t := v.Type()
-	for i := 0; i < v.NumField(); i++ {
-		strslice = append(strslice, (fmt.Sprintf("%s='%v'", strings.ToLower(t.Field(i).Name), v.Field(i).Interface())))
+	params := make([]string, 0, 5)
+	if p.Type != TypeInvalid {
+		params = append(params, fmt.Sprintf("type='%s'", p.Type))
 	}
-
-	return strings.Join(strslice, ",")
+	if p.Sender != "" {
+		params = append(params, fmt.Sprintf("sender='%s'", p.Sender))
+	}
+	if p.Path != "" {
+		params = append(params, fmt.Sprintf("path='%s'", p.Path))
+	}
+	if p.Interface != "" {
+		params = append(params, fmt.Sprintf("interface='%s'", p.Interface))
+	}
+	if p.Member != "" {
+		params = append(params, fmt.Sprintf("member='%s'", p.Member))
+	}
+	return strings.Join(params, ",")
 }
 
 func (p *MatchRule) _Match(msg *Message) bool {
 	if p.Type != TypeInvalid && p.Type != msg.Type {
 		return false
 	}
+	if p.Sender != "" && p.Sender != msg.Sender {
+		return false
+	}
+	if p.Path != "" && p.Path != msg.Path {
+		return false
+	}
 	if p.Interface != "" && p.Interface != msg.Iface {
 		return false
 	}
 	if p.Member != "" && p.Member != msg.Member {
-		return false
-	}
-	if p.Path != "" && p.Path != msg.Path {
 		return false
 	}
 	return true
