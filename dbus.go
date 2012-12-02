@@ -2,7 +2,6 @@ package dbus
 
 import (
 	"bytes"
-	"encoding/binary"
 	"errors"
 	"fmt"
 	"net"
@@ -17,34 +16,6 @@ const (
 	SessionBus StandardBus = iota
 	SystemBus
 )
-
-
-// ---- Remaining functions from old marshaller ----
-func _Align(length int, index int) int {
-	switch length {
-	case 1:
-		return index
-	case 2, 4, 8:
-		bit := length - 1
-		return ^bit & (index + bit)
-	}
-	// default
-	return -1
-}
-
-func _GetInt32(buff []byte, index int) (int32, error) {
-	if len(buff) <= index+4-1 {
-		return 0, errors.New("index error")
-	}
-	var l int32
-	e := binary.Read(bytes.NewBuffer(buff[index:len(buff)]), binary.LittleEndian, &l)
-	if e != nil {
-		return 0, e
-	}
-	return l, nil
-}
-
-// ----------------
 
 type signalHandler struct {
 	mr   MatchRule
@@ -169,15 +140,12 @@ func (p *Connection) Authenticate() error {
 
 func (p *Connection) _MessageReceiver(msgChan chan *Message) {
 	for {
-		e := p._FillBuffer()
-		if e != nil {
+		msg, err := readMessage(p.conn)
+		if err != nil {
+			// XXX: should we hang up the connection here?
 			continue
 		}
-		msg, e := p._PopMessage()
-		if e == nil {
-			msgChan <- msg
-			continue // might be another msg in p.buffer
-		}
+		msgChan <- msg
 	}
 }
 
@@ -240,40 +208,6 @@ func (p *Connection) _MessageDispatch(msg *Message) {
 			}
 		}
 	}
-}
-
-func (p *Connection) _PopMessage() (*Message, error) {
-	msg, err := _Unmarshal(p.buffer.Bytes())
-	if err != nil {
-		return nil, err
-	}
-	//	p.buffer.Read(make([]byte, n)) // remove first n bytes
-	p.buffer.Reset()
-	return msg, nil
-}
-
-func (p *Connection) _FillBuffer() error {
-	// Read header signature
-	headSig := make([]byte, 16)
-	n, e := p.conn.Read(headSig)
-	if n != 16 {
-		return e
-	}
-	// Calculate whole message length
-	bodyLength, _ := _GetInt32(headSig, 4)
-	arrayLength, _ := _GetInt32(headSig, 12)
-	headerLen := 16 + int(arrayLength)
-	pad := _Align(8, headerLen) - headerLen
-	restOfMsg := make([]byte, pad+int(arrayLength)+int(bodyLength))
-	n, e = p.conn.Read(restOfMsg)
-
-	if n != len(restOfMsg) {
-		return e
-	}
-
-	p.buffer.Write(headSig)
-	p.buffer.Write(restOfMsg)
-	return e
 }
 
 func (p *Connection) nextSerial() (serial uint32) {
