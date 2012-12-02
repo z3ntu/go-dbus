@@ -24,9 +24,11 @@ func newDecoder(signature Signature, data []byte, order binary.ByteOrder) *decod
 }
 
 func (self *decoder) align(alignment int) {
-	for self.dataOffset % alignment != 0 {
-		self.dataOffset += 1
+	inc := -self.dataOffset % alignment
+	if inc < 0 {
+		inc += alignment
 	}
+	self.dataOffset += inc
 }
 
 func (self *decoder) Decode(args ...interface{}) error {

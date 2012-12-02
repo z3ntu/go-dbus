@@ -1,8 +1,10 @@
 package dbus
 
 import (
+	"bytes"
 	"encoding/binary"
 	"errors"
+	"io"
 )
 
 // See the D-Bus tutorial for information about message types.
@@ -171,28 +173,45 @@ type headerField struct {
 	Value Variant
 }
 
-func _Unmarshal(buff []byte) (*Message, error) {
-	if len(buff) < 16 {
-		return nil, errors.New("Message buffer too short")
+func readMessage(r io.Reader) (*Message, error) {
+	header := make([]byte, 16)
+	if n, _ := r.Read(header); n < len(header) {
+		return nil, errors.New("Could not read message header")
 	}
 
 	msg := newMessage()
-	switch buff[0] {
+	switch header[0] {
 	case 'l':
 		msg.order = binary.LittleEndian
 	case 'B':
 		msg.order = binary.BigEndian
 	default:
-		return nil, errors.New("Unknown message endianness: " + string(buff[0]))
+		return nil, errors.New("Unknown message endianness: " + string(header[0]))
 	}
-	dec := newDecoder("yyyyuua(yv)", buff, msg.order)
+	dec := newDecoder("yyyyuuu", header, msg.order)
 	var msgOrder byte
-	var msgBodyLength uint32
-	fields := make([]headerField, 0, 10)
-	if err := dec.Decode(&msgOrder, &msg.Type, &msg.Flags, &msg.Protocol, &msgBodyLength, &msg.serial, &fields); err != nil {
+	var msgBodyLength, headerFieldsLength uint32
+	if err := dec.Decode(&msgOrder, &msg.Type, &msg.Flags, &msg.Protocol, &msgBodyLength, &msg.serial, &headerFieldsLength); err != nil {
 		return nil,  err
 	}
 
+	// Read out and decode the header fields, plus the padding to
+	// 8 bytes.
+	padding := -(len(header) + int(headerFieldsLength)) % 8
+	if padding < 0 {
+		padding += 8
+	}
+	headerFields := make([]byte, 16 + int(headerFieldsLength) + padding)
+	copy(headerFields[:16], header)
+	if n, _ := r.Read(headerFields[16:]); n < len(headerFields) - 16 {
+		return nil, errors.New("Could not read message header fields")
+	}
+	dec = newDecoder("a(yv)", headerFields, msg.order)
+	dec.dataOffset += 12
+	fields := make([]headerField, 0, 10)
+	if err := dec.Decode(&fields); err != nil {
+		return nil,  err
+	}
 	for _, field := range fields {
 		switch field.Code {
 		case 1:
@@ -214,12 +233,16 @@ func _Unmarshal(buff []byte) (*Message, error) {
 		}
 	}
 
-	dec.align(8)
-	msg.body = dec.Remainder()
-	if len(msg.body) != int(msgBodyLength) {
-		return nil, errors.New("Body length incorrect")
+	msg.body = make([]byte, msgBodyLength)
+	if n, _ := r.Read(msg.body); n < len(msg.body) {
+		return nil, errors.New("Could not read message body")
 	}
 	return msg, nil
+}
+
+func _Unmarshal(buff []byte) (*Message, error) {
+	msg, err := readMessage(bytes.NewBuffer(buff))
+	return msg, err
 }
 
 func (p *Message) _Marshal() ([]byte, error) {
