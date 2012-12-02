@@ -241,7 +241,7 @@ func readMessage(r io.Reader) (*Message, error) {
 }
 
 func _Unmarshal(buff []byte) (*Message, error) {
-	msg, err := readMessage(bytes.NewBuffer(buff))
+	msg, err := readMessage(bytes.NewReader(buff))
 	return msg, err
 }
 
