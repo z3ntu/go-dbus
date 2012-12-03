@@ -4,6 +4,8 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
+	"io"
+	"log"
 	"net"
 	"os"
 	"strings"
@@ -224,30 +226,27 @@ func (p *Connection) Authenticate() error {
 func (p *Connection) _MessageReceiver(msgChan chan *Message) {
 	for {
 		msg, err := readMessage(p.conn)
-		if err != nil {
-			// XXX: should we hang up the connection here?
-			continue
+		switch err {
+		case nil:
+			msgChan <- msg
+		case io.EOF:
+			break
+		default:
+			log.Println("Failed to read message:", err)
 		}
-		msgChan <- msg
 	}
+	close(msgChan)
 }
 
 func (p *Connection) _RunLoop() {
 	msgChan := make(chan *Message)
 	go p._MessageReceiver(msgChan)
-	for {
-		select {
-		case msg := <-msgChan:
-			p._MessageDispatch(msg)
-		}
+	for msg := range msgChan {
+		p._MessageDispatch(msg)
 	}
 }
 
 func (p *Connection) _MessageDispatch(msg *Message) {
-	if msg == nil {
-		return
-	}
-
 	switch msg.Type {
 	case TypeMethodCall:
 		switch {
