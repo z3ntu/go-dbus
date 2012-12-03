@@ -20,8 +20,9 @@ const (
 )
 
 type SignalWatch struct {
-	rule MatchRule
-	proc func(*Message)
+	bus     *Connection
+	rule    MatchRule
+	handler func(*Message)
 }
 
 // A structure to store the set of signal watches, keyed by object
@@ -290,7 +291,7 @@ func (p *Connection) _MessageDispatch(msg *Message) {
 		watches := p.signalMatchRules.FindMatches(msg)
 		p.handlerMutex.Unlock()
 		for _, watch := range watches {
-			watch.proc(msg)
+			watch.handler(msg)
 		}
 	}
 }
@@ -461,22 +462,22 @@ func (p *Connection) WatchSignal(rule *MatchRule, handler func(*Message)) (*Sign
 		return nil, reply.AsError()
 	}
 
-	watch := &SignalWatch{*rule, handler}
+	watch := &SignalWatch{p, *rule, handler}
 	p.handlerMutex.Lock()
 	p.signalMatchRules.Add(watch)
 	p.handlerMutex.Unlock()
 	return watch, nil
 }
 
-func (p *Connection) UnwatchSignal(watch *SignalWatch) error {
-	p.handlerMutex.Lock()
-	foundMatch := p.signalMatchRules.Remove(watch)
-	p.handlerMutex.Unlock()
+func (watch *SignalWatch) Cancel() error {
+	watch.bus.handlerMutex.Lock()
+	foundMatch := watch.bus.signalMatchRules.Remove(watch)
+	watch.bus.handlerMutex.Unlock()
 
 	if foundMatch {
 		method := NewMethodCallMessage("org.freedesktop.DBus", "/org/freedesktop/DBus", "org.freedesktop.DBus", "RemoveMatch")
 		method.AppendArgs(watch.rule.String())
-		if reply, err := p.SendWithReply(method); err != nil {
+		if reply, err := watch.bus.SendWithReply(method); err != nil {
 			return err
 		} else if reply.Type == TypeError {
 			return reply.AsError()

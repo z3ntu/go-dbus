@@ -58,7 +58,7 @@ func (s *S) TestDBus(c *C) {
 
 func (s *S) TestSignalWatchSetAdd(c *C) {
 	set := make(signalWatchSet)
-	watch := SignalWatch{MatchRule{
+	watch := SignalWatch{nil, MatchRule{
 		Type: TypeSignal,
 		Sender: ":1.42",
 		Path: "/foo",
@@ -77,7 +77,7 @@ func (s *S) TestSignalWatchSetAdd(c *C) {
 
 func (s *S) TestSignalWatchSetRemove(c *C) {
 	set := make(signalWatchSet)
-	watch := SignalWatch{MatchRule{
+	watch := SignalWatch{nil, MatchRule{
 		Type: TypeSignal,
 		Sender: ":1.42",
 		Path: "/foo",
@@ -97,7 +97,7 @@ func (s *S) TestSignalWatchSetFindMatches(c *C) {
 	msg.Sender = ":1.42"
 
 	set := make(signalWatchSet)
-	watch := SignalWatch{MatchRule{
+	watch := SignalWatch{nil, MatchRule{
 		Type: TypeSignal,
 		Sender: ":1.42",
 		Path: "/foo",
