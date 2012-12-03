@@ -1,7 +1,6 @@
 package dbus
 
 import (
-	"bytes"
 	"encoding/binary"
 	"errors"
 	"io"
@@ -175,8 +174,11 @@ type headerField struct {
 
 func readMessage(r io.Reader) (*Message, error) {
 	header := make([]byte, 16)
-	if n, _ := r.Read(header); n < len(header) {
-		return nil, errors.New("Could not read message header")
+	if n, err := r.Read(header); n < len(header) {
+		if err == nil {
+			err = errors.New("Could not read message header")
+		}
+		return nil, err
 	}
 
 	msg := newMessage()
@@ -203,8 +205,11 @@ func readMessage(r io.Reader) (*Message, error) {
 	}
 	headerFields := make([]byte, 16 + int(headerFieldsLength) + padding)
 	copy(headerFields[:16], header)
-	if n, _ := r.Read(headerFields[16:]); n < len(headerFields) - 16 {
-		return nil, errors.New("Could not read message header fields")
+	if n, err := r.Read(headerFields[16:]); n < len(headerFields) - 16 {
+		if err == nil {
+			err = errors.New("Could not read message header fields")
+		}
+		return nil, err
 	}
 	dec = newDecoder("a(yv)", headerFields, msg.order)
 	dec.dataOffset += 12
@@ -234,15 +239,13 @@ func readMessage(r io.Reader) (*Message, error) {
 	}
 
 	msg.body = make([]byte, msgBodyLength)
-	if n, _ := r.Read(msg.body); n < len(msg.body) {
-		return nil, errors.New("Could not read message body")
+	if n, err := r.Read(msg.body); n < len(msg.body) {
+		if err == nil {
+			err = errors.New("Could not read message body")
+		}
+		return nil, err
 	}
 	return msg, nil
-}
-
-func _Unmarshal(buff []byte) (*Message, error) {
-	msg, err := readMessage(bytes.NewReader(buff))
-	return msg, err
 }
 
 func (p *Message) _Marshal() ([]byte, error) {

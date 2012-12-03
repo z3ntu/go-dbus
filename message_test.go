@@ -1,6 +1,10 @@
 package dbus
 
-import . "launchpad.net/gocheck"
+import (
+	. "launchpad.net/gocheck"
+	"io"
+	"bytes"
+)
 
 var testMessage = []byte{
 	'l', // Byte order
@@ -29,9 +33,11 @@ var testMessage = []byte{
 	3, 0, 0, 0,
 	'x', 'y', 'z', 0}
 
-func (s *S) TestUnmarshalMessage(c *C) {
 
-	msg, err := _Unmarshal(testMessage)
+func (s *S) TestReadMessage(c *C) {
+	r := bytes.NewReader(testMessage)
+
+	msg, err := readMessage(r)
 	if nil != err {
 		c.Error(err)
 	}
@@ -46,6 +52,14 @@ func (s *S) TestUnmarshalMessage(c *C) {
 		c.Error(err)
 	}
 	c.Check(arg, Equals, "xyz")
+
+	// Try reading a second message from the reader
+	msg, err = readMessage(r)
+	if err == nil {
+		c.Error("Should not have been able to read a second message.")
+	} else if err != io.EOF {
+		c.Error(err)
+	}
 }
 
 func (s *S) TestMarshalMessage(c *C) {
