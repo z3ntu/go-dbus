@@ -329,7 +329,7 @@ func (p *Connection) SendWithReply(msg *Message) (*Message, error) {
 		return nil, err
 	}
 
-	replyChan := make(chan *Message)
+	replyChan := make(chan *Message, 1)
 	p.handlerMutex.Lock()
 	p.methodCallReplies[serial] = replyChan
 	p.handlerMutex.Unlock()
