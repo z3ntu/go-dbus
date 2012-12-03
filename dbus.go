@@ -17,7 +17,7 @@ const (
 	SystemBus
 )
 
-type signalHandler struct {
+type SignalWatch struct {
 	mr   MatchRule
 	proc func(*Message)
 }
@@ -31,7 +31,7 @@ type Connection struct {
 	handlerMutex       sync.Mutex // covers the next three
 	methodCallReplies  map[uint32]chan<- *Message
 	objectPathHandlers map[ObjectPath]chan<- *Message
-	signalMatchRules   []signalHandler
+	signalMatchRules   []*SignalWatch
 
 	lastSerialMutex    sync.Mutex
 	lastSerial         uint32
@@ -124,7 +124,7 @@ func Connect(busType StandardBus) (*Connection, error) {
 
 	bus.methodCallReplies = make(map[uint32]chan<- *Message)
 	bus.objectPathHandlers = make(map[ObjectPath]chan<- *Message)
-	bus.signalMatchRules = make([]signalHandler, 0)
+	bus.signalMatchRules = make([]*SignalWatch, 0)
 	bus.buffer = bytes.NewBuffer([]byte{})
 	return bus, nil
 }
@@ -201,11 +201,16 @@ func (p *Connection) _MessageDispatch(msg *Message) {
 			replyChan <- msg
 		}
 	case TypeSignal:
-		// XXX: grab handlerMutex when looking up signal handler.
+		procs := make([]func(*Message), 0)
+		p.handlerMutex.Lock()
 		for _, handler := range p.signalMatchRules {
 			if handler.mr._Match(msg) {
-				handler.proc(msg)
+				procs = append(procs, handler.proc)
 			}
+		}
+		p.handlerMutex.Unlock()
+		for _, proc := range procs {
+			proc(msg)
 		}
 	}
 }
@@ -364,15 +369,45 @@ func (p *Connection) Object(dest string, path ObjectPath) *Object {
 }
 
 // Handle received signals.
-func (p *Connection) Handle(rule *MatchRule, handler func(*Message)) {
+func (p *Connection) WatchSignal(rule *MatchRule, handler func(*Message)) (*SignalWatch, error) {
+	if rule.Type != TypeSignal {
+		return nil, errors.New("Match rule is not for signals")
+	}
 	method := NewMethodCallMessage("org.freedesktop.DBus", "/org/freedesktop/DBus", "org.freedesktop.DBus", "AddMatch")
 	method.AppendArgs(rule.String())
+	if reply, err := p.SendWithReply(method); err != nil {
+		return nil, err
+	} else if reply.Type == TypeError {
+		return nil, reply.AsError()
+	}
 
-	reply, err := p.SendWithReply(method)
-	if err != nil {
-		panic(err)
+	watch := &SignalWatch{*rule, handler}
+	p.handlerMutex.Lock()
+	p.signalMatchRules = append(p.signalMatchRules, watch)
+	p.handlerMutex.Unlock()
+	return watch, nil
+}
+
+func (p *Connection) UnwatchSignal(watch *SignalWatch) error {
+	foundMatch := false
+	p.handlerMutex.Lock()
+	for i, other := range p.signalMatchRules {
+		if other == watch {
+			p.signalMatchRules = append(p.signalMatchRules[:i], p.signalMatchRules[i+1:]...)
+			foundMatch = true
+			break
+		}
 	}
-	if reply.Type == TypeError {
-		panic(reply.AsError())
+	p.handlerMutex.Unlock()
+
+	if foundMatch {
+		method := NewMethodCallMessage("org.freedesktop.DBus", "/org/freedesktop/DBus", "org.freedesktop.DBus", "RemoveMatch")
+		method.AppendArgs(watch.mr.String())
+		if reply, err := p.SendWithReply(method); err != nil {
+			return err
+		} else if reply.Type == TypeError {
+			return reply.AsError()
+		}
 	}
+	return nil
 }
