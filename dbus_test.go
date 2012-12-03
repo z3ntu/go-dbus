@@ -54,6 +54,9 @@ func (s *S) TestDBus(c *C) {
 			c.Errorf("callTest %d: %v", i, err)
 		}
 	}
+
+	err = bus.Close()
+	c.Check(err, Equals, nil)
 }
 
 func (s *S) TestSignalWatchSetAdd(c *C) {

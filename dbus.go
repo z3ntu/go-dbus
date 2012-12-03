@@ -227,17 +227,16 @@ func (p *Connection) Authenticate() error {
 	return nil
 }
 
-func (p *Connection) _MessageReceiver(msgChan chan *Message) {
+func (p *Connection) _MessageReceiver(msgChan chan<- *Message) {
 	for {
 		msg, err := readMessage(p.conn)
-		switch err {
-		case nil:
-			msgChan <- msg
-		case io.EOF:
+		if err != nil {
+			if err != io.EOF {
+				log.Println("Failed to read message:", err)
+			}
 			break
-		default:
-			log.Println("Failed to read message:", err)
 		}
+		msgChan <- msg
 	}
 	close(msgChan)
 }
@@ -294,6 +293,10 @@ func (p *Connection) _MessageDispatch(msg *Message) {
 			watch.handler(msg)
 		}
 	}
+}
+
+func (p *Connection) Close() error {
+	return p.conn.Close()
 }
 
 func (p *Connection) nextSerial() (serial uint32) {
