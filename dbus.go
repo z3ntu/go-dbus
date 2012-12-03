@@ -18,8 +18,91 @@ const (
 )
 
 type SignalWatch struct {
-	mr   MatchRule
+	rule MatchRule
 	proc func(*Message)
+}
+
+// A structure to store the set of signal watches, keyed by object
+// path, interface and member.
+type signalWatchSet map[ObjectPath] map[string] map[string] []*SignalWatch
+
+func (self signalWatchSet) Add(watch *SignalWatch) {
+	byInterface, ok := self[watch.rule.Path]
+	if !ok {
+		byInterface = make(map[string] map[string] []*SignalWatch)
+		self[watch.rule.Path] = byInterface
+	}
+	byMember, ok := byInterface[watch.rule.Interface]
+	if !ok {
+		byMember = make(map[string] []*SignalWatch)
+		byInterface[watch.rule.Interface] = byMember
+	}
+	watches, ok := byMember[watch.rule.Member]
+	if !ok {
+		watches = make([]*SignalWatch, 0, 1)
+	}
+	byMember[watch.rule.Member] = append(watches, watch)
+}
+
+func (self signalWatchSet) Remove(watch *SignalWatch) bool {
+	byInterface, ok := self[watch.rule.Path]
+	if !ok {
+		return false
+	}
+	byMember, ok := byInterface[watch.rule.Interface]
+	if !ok {
+		return false
+	}
+	watches, ok := byMember[watch.rule.Member]
+	if !ok {
+		return false
+	}
+	for i, other := range watches {
+		if other == watch {
+			byMember[watch.rule.Member] = append(watches[:i], watches[i+1:]...)
+			return true
+		}
+	}
+	return false
+}
+
+func (self signalWatchSet) FindMatches(msg *Message) (matches []*SignalWatch) {
+	pathKeys := []ObjectPath{""}
+	if msg.Path != ObjectPath("") {
+		pathKeys = append(pathKeys, msg.Path)
+	}
+	ifaceKeys := []string{""}
+	if msg.Iface != "" {
+		ifaceKeys = append(ifaceKeys, msg.Iface)
+	}
+	memberKeys := []string{""}
+	if msg.Member != "" {
+		memberKeys = append(memberKeys, msg.Member)
+	}
+	for _, path := range pathKeys {
+		byInterface, ok := self[path]
+		if !ok {
+			continue
+		}
+		for _, iface := range ifaceKeys {
+			byMember, ok := byInterface[iface]
+			if !ok {
+				continue
+			}
+			for _, member := range memberKeys {
+				watches, ok := byMember[member]
+				if !ok {
+					continue
+				}
+				for _, watch := range watches {
+					if watch.rule._Match(msg) {
+						matches = append(matches, watch)
+					}
+				}
+			}
+		}
+	}
+	return
 }
 
 type Connection struct {
@@ -31,7 +114,7 @@ type Connection struct {
 	handlerMutex       sync.Mutex // covers the next three
 	methodCallReplies  map[uint32]chan<- *Message
 	objectPathHandlers map[ObjectPath]chan<- *Message
-	signalMatchRules   []*SignalWatch
+	signalMatchRules   signalWatchSet
 
 	lastSerialMutex    sync.Mutex
 	lastSerial         uint32
@@ -124,7 +207,7 @@ func Connect(busType StandardBus) (*Connection, error) {
 
 	bus.methodCallReplies = make(map[uint32]chan<- *Message)
 	bus.objectPathHandlers = make(map[ObjectPath]chan<- *Message)
-	bus.signalMatchRules = make([]*SignalWatch, 0)
+	bus.signalMatchRules = make(signalWatchSet)
 	bus.buffer = bytes.NewBuffer([]byte{})
 	return bus, nil
 }
@@ -201,16 +284,11 @@ func (p *Connection) _MessageDispatch(msg *Message) {
 			replyChan <- msg
 		}
 	case TypeSignal:
-		procs := make([]func(*Message), 0)
 		p.handlerMutex.Lock()
-		for _, handler := range p.signalMatchRules {
-			if handler.mr._Match(msg) {
-				procs = append(procs, handler.proc)
-			}
-		}
+		watches := p.signalMatchRules.FindMatches(msg)
 		p.handlerMutex.Unlock()
-		for _, proc := range procs {
-			proc(msg)
+		for _, watch := range watches {
+			watch.proc(msg)
 		}
 	}
 }
@@ -383,26 +461,19 @@ func (p *Connection) WatchSignal(rule *MatchRule, handler func(*Message)) (*Sign
 
 	watch := &SignalWatch{*rule, handler}
 	p.handlerMutex.Lock()
-	p.signalMatchRules = append(p.signalMatchRules, watch)
+	p.signalMatchRules.Add(watch)
 	p.handlerMutex.Unlock()
 	return watch, nil
 }
 
 func (p *Connection) UnwatchSignal(watch *SignalWatch) error {
-	foundMatch := false
 	p.handlerMutex.Lock()
-	for i, other := range p.signalMatchRules {
-		if other == watch {
-			p.signalMatchRules = append(p.signalMatchRules[:i], p.signalMatchRules[i+1:]...)
-			foundMatch = true
-			break
-		}
-	}
+	foundMatch := p.signalMatchRules.Remove(watch)
 	p.handlerMutex.Unlock()
 
 	if foundMatch {
 		method := NewMethodCallMessage("org.freedesktop.DBus", "/org/freedesktop/DBus", "org.freedesktop.DBus", "RemoveMatch")
-		method.AppendArgs(watch.mr.String())
+		method.AppendArgs(watch.rule.String())
 		if reply, err := p.SendWithReply(method); err != nil {
 			return err
 		} else if reply.Type == TypeError {
