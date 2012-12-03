@@ -61,7 +61,10 @@ func (self signalWatchSet) Remove(watch *SignalWatch) bool {
 	}
 	for i, other := range watches {
 		if other == watch {
-			byMember[watch.rule.Member] = append(watches[:i], watches[i+1:]...)
+			// Truncate the watch slice, moving the item
+			// at the end to the new location.
+			watches[i] = watches[len(watches)-1]
+			byMember[watch.rule.Member] = watches[:len(watches)-1]
 			return true
 		}
 	}
