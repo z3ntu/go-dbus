@@ -10,6 +10,7 @@ import (
 	"os"
 	"strings"
 	"sync"
+	"sync/atomic"
 )
 
 type StandardBus int
@@ -122,7 +123,6 @@ type Connection struct {
 	objectPathHandlers map[ObjectPath]chan<- *Message
 	signalMatchRules   signalWatchSet
 
-	lastSerialMutex    sync.Mutex
 	lastSerial         uint32
 }
 
@@ -299,12 +299,8 @@ func (p *Connection) Close() error {
 	return p.conn.Close()
 }
 
-func (p *Connection) nextSerial() (serial uint32) {
-	p.lastSerialMutex.Lock()
-	p.lastSerial++
-	serial = p.lastSerial
-	p.lastSerialMutex.Unlock()
-	return
+func (p *Connection) nextSerial() uint32 {
+	return atomic.AddUint32(&p.lastSerial, 1)
 }
 
 func (p *Connection) Send(msg *Message) error {
