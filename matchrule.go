@@ -11,11 +11,12 @@ type MatchRule struct {
 	Path      ObjectPath
 	Interface string
 	Member    string
+	Arg0      string
 }
 
 // A string representation af the MatchRule (D-Bus variant map).
 func (p *MatchRule) String() string {
-	params := make([]string, 0, 5)
+	params := make([]string, 0, 6)
 	if p.Type != TypeInvalid {
 		params = append(params, fmt.Sprintf("type='%s'", p.Type))
 	}
@@ -30,6 +31,9 @@ func (p *MatchRule) String() string {
 	}
 	if p.Member != "" {
 		params = append(params, fmt.Sprintf("member='%s'", p.Member))
+	}
+	if p.Arg0 != "" {
+		params = append(params, fmt.Sprintf("arg0='%s'", p.Arg0))
 	}
 	return strings.Join(params, ",")
 }
@@ -49,6 +53,12 @@ func (p *MatchRule) _Match(msg *Message) bool {
 	}
 	if p.Member != "" && p.Member != msg.Member {
 		return false
+	}
+	if p.Arg0 != "" {
+		var arg0 string
+		if err := msg.GetArgs(&arg0); err != nil || arg0 != p.Arg0 {
+			return false
+		}
 	}
 	return true
 }
