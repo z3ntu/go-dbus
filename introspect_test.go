@@ -1,7 +1,7 @@
 package dbus
 
 import (
-	"testing"
+	. "launchpad.net/gocheck"
 )
 
 var introStr = `
@@ -32,47 +32,26 @@ var introStr = `
        </node>
 `
 
-func TestIntrospect(t *testing.T) {
-	intro, e := NewIntrospect(introStr)
-	if e != nil {
-		t.Error("Failed #1-1")
-	}
-	if intro == nil {
-		t.Error("Failed #1-2")
-	}
+func (s *S) TestIntrospect(c *C) {
+	intro, err := NewIntrospect(introStr)
+	c.Assert(err, Equals, nil)
+	c.Assert(intro, Not(Equals), nil)
 
 	intf := intro.GetInterfaceData("org.freedesktop.SampleInterface")
-	if intf == nil {
-		t.Error("Failed #2-1")
-	}
-	if intf.GetName() != "org.freedesktop.SampleInterface" {
-		t.Error("Failed #2-2")
-	}
+	c.Assert(intf,  Not(Equals), nil)
+	c.Check(intf.GetName(), Equals, "org.freedesktop.SampleInterface")
 
 	meth := intf.GetMethodData("Frobate")
-	if meth == nil {
-		t.Error("Failed #3-1")
-	}
-	if meth != nil && "sa{us}" != meth.GetOutSignature() {
-		t.Error("Failed #3-2")
-	}
+	c.Assert(meth, Not(Equals), nil)
+	c.Check(meth.GetOutSignature(), Equals, Signature("sa{us}"))
 
 	nilmeth := intf.GetMethodData("Hoo") // unknown method name
-	if nilmeth != nil {
-		t.Error("Failed #3-3")
-	}
+	c.Check(nilmeth, Equals, nil)
 
 	signal := intf.GetSignalData("Changed")
-	if signal == nil {
-		t.Error("Failed #4-1")
-	}
-	if signal != nil && "b" != signal.GetSignature() {
-		t.Error("Failed #4-2")
-	}
+	c.Assert(signal, Not(Equals), nil)
+	c.Check(signal.GetSignature(), Equals, Signature("b"))
 
 	nilsignal := intf.GetSignalData("Hoo") // unknown signal name
-	if nilsignal != nil {
-		t.Error("Failed #4-3")
-	}
-
+	c.Check(nilsignal, Equals, nil)
 }
