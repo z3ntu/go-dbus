@@ -19,6 +19,12 @@ const (
 	SystemBus
 )
 
+const (
+	BUS_DAEMON_NAME  = "org.freedesktop.DBus"
+	BUS_DAEMON_PATH  = ObjectPath("/org/freedesktop/DBus")
+	BUS_DAEMON_IFACE = "org.freedesktop.DBus"
+)
+
 type SignalWatch struct {
 	bus     *Connection
 	rule    MatchRule
@@ -206,7 +212,7 @@ func Connect(busType StandardBus) (*Connection, error) {
 		return nil, err
 	}
 
-	bus.busProxy = MessageBus{bus.Object("org.freedesktop.DBus", "/org/freedesktop/DBus")}
+	bus.busProxy = MessageBus{bus.Object(BUS_DAEMON_NAME, BUS_DAEMON_PATH)}
 
 	bus.methodCallReplies = make(map[uint32] chan<- *Message)
 	bus.objectPathHandlers = make(map[ObjectPath] chan<- *Message)

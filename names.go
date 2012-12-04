@@ -23,36 +23,46 @@ func newNameOwner(bus *Connection, busName string) (*nameOwner, error) {
 		bus: bus,
 		busName: busName,
 		watches: []*NameOwnerWatch{}}
+	handler := func(msg *Message) {
+		var busName, oldOwner, newOwner string
+		if err := msg.GetArgs(&busName, &oldOwner, &newOwner); err != nil {
+			log.Println("Could not decode NameOwnerChanged message:", err)
+			return
+		}
+		owner.handleOwnerChange(oldOwner, newOwner)
+	}
 	watch, err := bus.WatchSignal(&MatchRule{
 		Type: TypeSignal,
-		Sender: "org.freedesktop.DBus",
-		Path: "/org/freedesktop/DBus",
-		Interface: "org.freedesktop.DBus",
+		Sender: BUS_DAEMON_NAME,
+		Path: BUS_DAEMON_PATH,
+		Interface: BUS_DAEMON_IFACE,
 		Member: "NameOwnerChanged",
-		Arg0: busName},
-		func (msg *Message) { owner.handleOwnerChange(msg) })
+		Arg0: busName}, handler)
 	if err != nil {
 		return nil, err
 	}
 	owner.signalWatch = watch
 
-	msg := NewMethodCallMessage("org.freedesktop.DBus", "/org/freedesktop/DBus", "org.freedesktop.DBus", "GetNameOwner")
-	if err := msg.AppendArgs(busName); err != nil {
-		// Ignore error
-		_ = watch.Cancel()
-		return nil, err
-	}
+	// spawn a goroutine to find the current name owner
+	go func() {
+		currentOwner, err := bus.busProxy.GetNameOwner(busName)
+		if err != nil {
+			if dbusErr, ok := err.(*Error); !ok || dbusErr.Name != "org.freedesktop.DBus.Error.NameHasNoOwner" {
+				log.Println("Unexpected error from GetNameOwner:", err)
+			}
+		}
+		if owner.currentOwner == "" {
+			// Simulate an ownership change message.
+			owner.handleOwnerChange("", currentOwner)
+		}
+	}()
+
 	return owner, nil
 }
 
-func (self *nameOwner) handleOwnerChange(msg *Message) {
-	var busName, oldOwner, newOwner string
-	if err := msg.GetArgs(&busName, &oldOwner, &newOwner); err != nil {
-		log.Println("Could not decode NameOwnerChanged message:", err)
-		return
-	}
+func (self *nameOwner) handleOwnerChange(oldOwner, newOwner string) {
 	for _, watch := range self.watches {
-		watch.handler(busName, oldOwner, newOwner)
+		watch.handler(self.busName, oldOwner, newOwner)
 	}
 	self.currentOwner = newOwner
 }
