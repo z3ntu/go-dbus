@@ -44,9 +44,7 @@ func (test callTest) Call(c *Connection) error {
 func (s *S) TestDBus(c *C) {
 	bus, err := Connect(SessionBus)
 	c.Check(err, Equals, nil)
-
-	err = bus.Authenticate()
-	c.Check(err, Equals, nil)
+	c.Check(bus.Authenticate(), Equals, nil)
 
 	for i, test := range callTests {
 		err = test.Call(bus)
@@ -57,6 +55,65 @@ func (s *S) TestDBus(c *C) {
 
 	err = bus.Close()
 	c.Check(err, Equals, nil)
+}
+
+func (s *S) TestSendSignal(c *C) {
+	bus1, err := Connect(SessionBus)
+	c.Check(err, Equals, nil)
+	defer bus1.Close()
+	c.Check(bus1.Authenticate(), Equals, nil)
+
+	// Set up a second bus connection to receive a signal.
+	watchReady := make(chan int)
+	complete := make(chan *Message)
+	go func(sender string, watchReady chan<- int, complete chan<- *Message) {
+		bus2, err := Connect(SessionBus)
+		if err != nil {
+			c.Error(err)
+			watchReady <- 0
+			complete <- nil
+			return
+		}
+		defer bus2.Close()
+		if err := bus2.Authenticate(); err != nil {
+			c.Error(err)
+			watchReady <- 0
+			complete <- nil
+			return
+		}
+		msgChan := make(chan *Message)
+		watch, err := bus2.WatchSignal(&MatchRule{
+			Type: TypeSignal,
+			Sender: sender,
+			Path: "/go/dbus/test",
+			Interface: "com.example.GoDbus",
+			Member: "TestSignal"},
+			func(msg *Message) { msgChan <- msg })
+		watchReady <- 0
+		if err != nil {
+			c.Error(err)
+			bus2.Close()
+			complete <- nil
+			return
+		}
+		msg := <-msgChan
+		if err := watch.Cancel(); err != nil {
+			c.Error(err)
+		}
+		complete <- msg
+	}(bus1.uniqName, watchReady, complete)
+
+	// Wait for the goroutine to configure the signal watch
+	<-watchReady
+
+	// Send the signal and wait for it to be received at the other end.
+	signal := NewSignalMessage("/go/dbus/test", "com.example.GoDbus", "TestSignal")
+	if err := bus1.Send(signal); err != nil {
+		c.Fatal(err)
+	}
+
+	signal2 := <- complete
+	c.Check(signal2, Not(Equals), nil)
 }
 
 func (s *S) TestSignalWatchSetAdd(c *C) {
@@ -80,19 +137,26 @@ func (s *S) TestSignalWatchSetAdd(c *C) {
 
 func (s *S) TestSignalWatchSetRemove(c *C) {
 	set := make(signalWatchSet)
-	watch := SignalWatch{nil, MatchRule{
+	watch1 := SignalWatch{nil, MatchRule{
 		Type: TypeSignal,
 		Sender: ":1.42",
 		Path: "/foo",
 		Interface: "com.example.Foo",
 		Member: "Bar"}, nil}
-	set.Add(&watch)
+	set.Add(&watch1)
+	watch2 := SignalWatch{nil, MatchRule{
+		Type: TypeSignal,
+		Sender: ":1.43",
+		Path: "/foo",
+		Interface: "com.example.Foo",
+		Member: "Bar"}, nil}
+	set.Add(&watch2)
 
-	c.Check(set.Remove(&watch), Equals, true)
-	c.Check(set["/foo"]["com.example.Foo"]["Bar"], DeepEquals, []*SignalWatch{})
+	c.Check(set.Remove(&watch1), Equals, true)
+	c.Check(set["/foo"]["com.example.Foo"]["Bar"], DeepEquals, []*SignalWatch{&watch2})
 
 	// A second attempt at removal fails
-	c.Check(set.Remove(&watch), Equals, false)
+	c.Check(set.Remove(&watch1), Equals, false)
 }
 
 func (s *S) TestSignalWatchSetFindMatches(c *C) {
