@@ -40,8 +40,9 @@ func (test callTest) Call(c *Connection) error {
 
 func (s *S) TestDBus(c *C) {
 	bus, err := Connect(SessionBus)
-	c.Check(err, Equals, nil)
-	c.Check(bus.Authenticate(), Equals, nil)
+	c.Assert(err, Equals, nil)
+	defer bus.Close()
+	c.Assert(bus.Authenticate(), Equals, nil)
 
 	for i, test := range callTests {
 		err = test.Call(bus)
@@ -49,16 +50,13 @@ func (s *S) TestDBus(c *C) {
 			c.Errorf("callTest %d: %v", i, err)
 		}
 	}
-
-	err = bus.Close()
-	c.Check(err, Equals, nil)
 }
 
-func (s *S) TestSendSignal(c *C) {
+func (s *S) TestConnectionWatchSignal(c *C) {
 	bus1, err := Connect(SessionBus)
-	c.Check(err, Equals, nil)
+	c.Assert(err, Equals, nil)
 	defer bus1.Close()
-	c.Check(bus1.Authenticate(), Equals, nil)
+	c.Assert(bus1.Authenticate(), Equals, nil)
 
 	// Set up a second bus connection to receive a signal.
 	watchReady := make(chan int)
@@ -111,6 +109,36 @@ func (s *S) TestSendSignal(c *C) {
 
 	signal2 := <- complete
 	c.Check(signal2, Not(Equals), nil)
+}
+
+func (s *S) TestConnectionWatchNameOwner(c *C) {
+	bus, err := Connect(SessionBus)
+	c.Assert(err, Equals, nil)
+	defer bus.Close()
+	c.Assert(bus.Authenticate(), Equals, nil)
+
+	// Set up the name watch
+	nameChanged := make(chan int, 1)
+	owners := []string{}
+	watch, err := bus.WatchNameOwner("com.example.GoDbus", func (busName, oldOwner, newOwner string) {
+		owners = append(owners, newOwner)
+		nameChanged <- 0
+	})
+	c.Assert(err, Equals, nil)
+	defer watch.Cancel()
+
+	// Do not queue for ownership
+	result, err := bus.busProxy.RequestName("com.example.GoDbus", 0x4)
+	c.Assert(err, Equals, nil)
+	c.Assert(result, Equals, uint32(1)) // We are Primary Owner
+	<- nameChanged
+	c.Check(owners, DeepEquals, []string{bus.UniqueName})
+
+	result, err = bus.busProxy.ReleaseName("com.example.GoDbus")
+	c.Assert(err, Equals, nil)
+	c.Assert(result, Equals, uint32(1)) // Released
+	<- nameChanged
+	c.Check(owners, DeepEquals, []string{bus.UniqueName, ""})
 }
 
 func (s *S) TestSignalWatchSetAdd(c *C) {

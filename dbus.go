@@ -116,13 +116,15 @@ type Connection struct {
 	UniqueName         string
 	conn               net.Conn
 	busProxy           MessageBus
+	lastSerial         uint32
 
 	handlerMutex       sync.Mutex // covers the next three
-	methodCallReplies  map[uint32]chan<- *Message
-	objectPathHandlers map[ObjectPath]chan<- *Message
+	methodCallReplies  map[uint32] chan<- *Message
+	objectPathHandlers map[ObjectPath] chan<- *Message
 	signalMatchRules   signalWatchSet
 
-	lastSerial         uint32
+	nameOwnerMutex     sync.Mutex
+	nameOwners         map[string] *nameOwner
 }
 
 type ObjectProxy struct {
@@ -204,11 +206,14 @@ func Connect(busType StandardBus) (*Connection, error) {
 		return nil, err
 	}
 
-	bus.methodCallReplies = make(map[uint32]chan<- *Message)
-	bus.objectPathHandlers = make(map[ObjectPath]chan<- *Message)
+	bus.busProxy = MessageBus{bus.Object("org.freedesktop.DBus", "/org/freedesktop/DBus")}
+
+	bus.methodCallReplies = make(map[uint32] chan<- *Message)
+	bus.objectPathHandlers = make(map[ObjectPath] chan<- *Message)
 	bus.signalMatchRules = make(signalWatchSet)
 
-	bus.busProxy = MessageBus{bus.Object("org.freedesktop.DBus", "/org/freedesktop/DBus")}
+	bus.nameOwners = make(map[string] *nameOwner)
+
 	return bus, nil
 }
 
