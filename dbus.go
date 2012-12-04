@@ -121,7 +121,7 @@ type Connection struct {
 	addressMap         map[string]string
 	UniqueName         string
 	conn               net.Conn
-	busProxy           MessageBus
+	busProxy           BusDaemon
 	lastSerial         uint32
 
 	handlerMutex       sync.Mutex // covers the next three
@@ -212,7 +212,7 @@ func Connect(busType StandardBus) (*Connection, error) {
 		return nil, err
 	}
 
-	bus.busProxy = MessageBus{bus.Object(BUS_DAEMON_NAME, BUS_DAEMON_PATH)}
+	bus.busProxy = BusDaemon{bus.Object(BUS_DAEMON_NAME, BUS_DAEMON_PATH)}
 
 	bus.methodCallReplies = make(map[uint32] chan<- *Message)
 	bus.objectPathHandlers = make(map[ObjectPath] chan<- *Message)

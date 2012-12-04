@@ -44,12 +44,12 @@ func (o *Properties) GetAll(interfaceName string) (props map[string]Variant, err
 	return
 }
 
-type MessageBus struct {
+type BusDaemon struct {
 	*ObjectProxy
 }
 
-func (o *MessageBus) Hello() (uniqueName string, err error) {
-	reply, err := o.Call("org.freedesktop.DBus", "Hello")
+func (o *BusDaemon) Hello() (uniqueName string, err error) {
+	reply, err := o.Call(BUS_DAEMON_IFACE, "Hello")
 	if err != nil {
 		return
 	}
@@ -57,8 +57,8 @@ func (o *MessageBus) Hello() (uniqueName string, err error) {
 	return
 }
 
-func (o *MessageBus) RequestName(name string, flags uint32) (result uint32, err error) {
-	reply, err := o.Call("org.freedesktop.DBus", "RequestName", name, flags)
+func (o *BusDaemon) RequestName(name string, flags uint32) (result uint32, err error) {
+	reply, err := o.Call(BUS_DAEMON_IFACE, "RequestName", name, flags)
 	if err != nil {
 		return
 	}
@@ -66,8 +66,8 @@ func (o *MessageBus) RequestName(name string, flags uint32) (result uint32, err 
 	return
 }
 
-func (o *MessageBus) ReleaseName(name string) (result uint32, err error) {
-	reply, err := o.Call("org.freedesktop.DBus", "ReleaseName", name)
+func (o *BusDaemon) ReleaseName(name string) (result uint32, err error) {
+	reply, err := o.Call(BUS_DAEMON_IFACE, "ReleaseName", name)
 	if err != nil {
 		return
 	}
@@ -75,8 +75,8 @@ func (o *MessageBus) ReleaseName(name string) (result uint32, err error) {
 	return
 }
 
-func (o *MessageBus) ListQueuedOwners(name string) (owners []string, err error) {
-	reply, err := o.Call("org.freedesktop.DBus", "ListQueuedOwners", name)
+func (o *BusDaemon) ListQueuedOwners(name string) (owners []string, err error) {
+	reply, err := o.Call(BUS_DAEMON_IFACE, "ListQueuedOwners", name)
 	if err != nil {
 		return
 	}
@@ -84,8 +84,8 @@ func (o *MessageBus) ListQueuedOwners(name string) (owners []string, err error) 
 	return
 }
 
-func (o *MessageBus) ListNames() (names []string, err error) {
-	reply, err := o.Call("org.freedesktop.DBus", "ListNames")
+func (o *BusDaemon) ListNames() (names []string, err error) {
+	reply, err := o.Call(BUS_DAEMON_IFACE, "ListNames")
 	if err != nil {
 		return
 	}
@@ -93,8 +93,8 @@ func (o *MessageBus) ListNames() (names []string, err error) {
 	return
 }
 
-func (o *MessageBus) ListActivatableNames() (names []string, err error) {
-	reply, err := o.Call("org.freedesktop.DBus", "ListActivatableNames")
+func (o *BusDaemon) ListActivatableNames() (names []string, err error) {
+	reply, err := o.Call(BUS_DAEMON_IFACE, "ListActivatableNames")
 	if err != nil {
 		return
 	}
@@ -102,8 +102,8 @@ func (o *MessageBus) ListActivatableNames() (names []string, err error) {
 	return
 }
 
-func (o *MessageBus) NameHasOwner(name string) (hasOwner bool, err error) {
-	reply, err := o.Call("org.freedesktop.DBus", "NameHasOwner", name)
+func (o *BusDaemon) NameHasOwner(name string) (hasOwner bool, err error) {
+	reply, err := o.Call(BUS_DAEMON_IFACE, "NameHasOwner", name)
 	if err != nil {
 		return
 	}
@@ -111,8 +111,8 @@ func (o *MessageBus) NameHasOwner(name string) (hasOwner bool, err error) {
 	return
 }
 
-func (o *MessageBus) StartServiceByName(name string, flags uint32) (result uint32, err error) {
-	reply, err := o.Call("org.freedesktop.DBus", "StartServiceByName", name, flags)
+func (o *BusDaemon) StartServiceByName(name string, flags uint32) (result uint32, err error) {
+	reply, err := o.Call(BUS_DAEMON_IFACE, "StartServiceByName", name, flags)
 	if err != nil {
 		return
 	}
@@ -120,13 +120,13 @@ func (o *MessageBus) StartServiceByName(name string, flags uint32) (result uint3
 	return
 }
 
-func (o *MessageBus) UpdateActivationEnvironment(env map[string]string) (err error) {
-	_, err = o.Call("org.freedesktop.DBus", "UpdateActivationEnvironment", env)
+func (o *BusDaemon) UpdateActivationEnvironment(env map[string]string) (err error) {
+	_, err = o.Call(BUS_DAEMON_IFACE, "UpdateActivationEnvironment", env)
 	return
 }
 
-func (o *MessageBus) GetNameOwner(name string) (owner string, err error) {
-	reply, err := o.Call("org.freedesktop.DBus", "GetNameOwner", name)
+func (o *BusDaemon) GetNameOwner(name string) (owner string, err error) {
+	reply, err := o.Call(BUS_DAEMON_IFACE, "GetNameOwner", name)
 	if err != nil {
 		return
 	}
@@ -134,8 +134,8 @@ func (o *MessageBus) GetNameOwner(name string) (owner string, err error) {
 	return
 }
 
-func (o *MessageBus) GetConnectionUnixUser(busName string) (user uint32, err error) {
-	reply, err := o.Call("org.freedesktop.DBus", "GetConnectionUnixUser", busName)
+func (o *BusDaemon) GetConnectionUnixUser(busName string) (user uint32, err error) {
+	reply, err := o.Call(BUS_DAEMON_IFACE, "GetConnectionUnixUser", busName)
 	if err != nil {
 		return
 	}
@@ -143,8 +143,8 @@ func (o *MessageBus) GetConnectionUnixUser(busName string) (user uint32, err err
 	return
 }
 
-func (o *MessageBus) GetConnectionUnixProcessID(busName string) (process uint32, err error) {
-	reply, err := o.Call("org.freedesktop.DBus", "GetConnectionUnixProcessID", busName)
+func (o *BusDaemon) GetConnectionUnixProcessID(busName string) (process uint32, err error) {
+	reply, err := o.Call(BUS_DAEMON_IFACE, "GetConnectionUnixProcessID", busName)
 	if err != nil {
 		return
 	}
@@ -152,18 +152,18 @@ func (o *MessageBus) GetConnectionUnixProcessID(busName string) (process uint32,
 	return
 }
 
-func (o *MessageBus) AddMatch(rule string) (err error) {
-	_, err = o.Call("org.freedesktop.DBus", "AddMatch", rule)
+func (o *BusDaemon) AddMatch(rule string) (err error) {
+	_, err = o.Call(BUS_DAEMON_IFACE, "AddMatch", rule)
 	return
 }
 
-func (o *MessageBus) RemoveMatch(rule string) (err error) {
-	_, err = o.Call("org.freedesktop.DBus", "RemoveMatch", rule)
+func (o *BusDaemon) RemoveMatch(rule string) (err error) {
+	_, err = o.Call(BUS_DAEMON_IFACE, "RemoveMatch", rule)
 	return
 }
 
-func (o *MessageBus) GetId() (busId string, err error) {
-	reply, err := o.Call("org.freedesktop.DBus", "GetId")
+func (o *BusDaemon) GetId() (busId string, err error) {
+	reply, err := o.Call(BUS_DAEMON_IFACE, "GetId")
 	if err != nil {
 		return
 	}
