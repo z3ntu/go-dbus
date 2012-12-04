@@ -10,7 +10,7 @@ type callTest struct {
 	path ObjectPath
 	iface, method string
 	args                      []interface{}
-	validate                  func([]interface{}) error
+	validate                  func(*Message) error
 }
 
 var callTests = []callTest{
@@ -21,21 +21,18 @@ var callTests = []callTest{
 			"info", "testing go-dbus", "test_body",
 			[]string{}, map[string]Variant{},
 			int32(2000)},
-		func([]interface{}) error {
+		func(*Message) error {
 			return nil
 		}},
 }
 
 func (test callTest) Call(c *Connection) error {
-	method, err := c.Object(test.dest, test.path).Interface(test.iface).Method(test.method)
-	if err != nil {
-		return err
-	}
-	out, err := c.Call(method, test.args...)
+	proxy := c.Object(test.dest, test.path)
+	reply, err := proxy.Call(test.iface, test.method, test.args...)
 	if err != nil {
 		return fmt.Errorf("failed Method.Call: %v", err)
 	}
-	if err = test.validate(out); err != nil {
+	if err = test.validate(reply); err != nil {
 		err = fmt.Errorf("failed validation: %v", err)
 	}
 	return err

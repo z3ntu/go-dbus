@@ -2,31 +2,6 @@ package dbus
 
 // This is not yet finished: it is an idea for what statically generated object bindings could look like.
 
-type ObjectProxy struct {
-	conn *Connection
-	destination string
-	path ObjectPath
-}
-
-func (o *ObjectProxy) GetObjectPath() ObjectPath {
-	return o.path
-}
-
-func (o *ObjectProxy) Call(iface, method string, args ...interface{}) (*Message, error) {
-	msg := NewMethodCallMessage(o.destination, o.path, iface, method)
-	if err := msg.AppendArgs(args...); err != nil {
-		return nil, err
-	}
-	reply, err := o.conn.SendWithReply(msg)
-	if err != nil {
-		return nil, err
-	}
-	if reply.Type == TypeError {
-		return nil, reply.AsError()
-	}
-	return reply, nil
-}
-
 type Introspectable struct {
 	*ObjectProxy
 }

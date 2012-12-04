@@ -1,7 +1,6 @@
 package dbus
 
 import (
-	"bytes"
 	"errors"
 	"fmt"
 	"io"
@@ -116,7 +115,7 @@ type Connection struct {
 	addressMap         map[string]string
 	UniqueName         string
 	conn               net.Conn
-	buffer             *bytes.Buffer
+	busProxy           MessageBus
 
 	handlerMutex       sync.Mutex // covers the next three
 	methodCallReplies  map[uint32]chan<- *Message
@@ -126,44 +125,38 @@ type Connection struct {
 	lastSerial         uint32
 }
 
-type Object struct {
-	dest  string
-	path  ObjectPath
-	intro Introspect
+type ObjectProxy struct {
+	bus *Connection
+	destination string
+	path ObjectPath
 }
 
-type Interface struct {
-	obj   *Object
-	name  string
-	intro InterfaceData
+func (o *ObjectProxy) GetObjectPath() ObjectPath {
+	return o.path
 }
 
-type Method struct {
-	iface *Interface
-	data  MethodData
-}
-
-type Signal struct {
-	iface *Interface
-	data  SignalData
-}
-
-// Retrieve a method by name.
-func (iface *Interface) Method(name string) (*Method, error) {
-	method := iface.intro.GetMethodData(name)
-	if nil == method {
-		return nil, errors.New("Invalid Method")
+func (o *ObjectProxy) Call(iface, method string, args ...interface{}) (*Message, error) {
+	msg := NewMethodCallMessage(o.destination, o.path, iface, method)
+	if err := msg.AppendArgs(args...); err != nil {
+		return nil, err
 	}
-	return &Method{iface, method}, nil
+	reply, err := o.bus.SendWithReply(msg)
+	if err != nil {
+		return nil, err
+	}
+	if reply.Type == TypeError {
+		return nil, reply.AsError()
+	}
+	return reply, nil
 }
 
-// Retrieve a signal by name.
-func (iface *Interface) Signal(name string) (*Signal, error) {
-	signal := iface.intro.GetSignalData(name)
-	if nil == signal {
-		return nil, errors.New("Invalid Signalx")
-	}
-	return &Signal{iface, signal}, nil
+func (o *ObjectProxy) WatchSignal(iface, member string, handler func(*Message)) (*SignalWatch, error) {
+	return o.bus.WatchSignal(&MatchRule{
+		Type: TypeSignal,
+		Sender: o.destination,
+		Path: o.path,
+		Interface: iface,
+		Member: member}, handler)
 }
 
 func Connect(busType StandardBus) (*Connection, error) {
@@ -214,17 +207,18 @@ func Connect(busType StandardBus) (*Connection, error) {
 	bus.methodCallReplies = make(map[uint32]chan<- *Message)
 	bus.objectPathHandlers = make(map[ObjectPath]chan<- *Message)
 	bus.signalMatchRules = make(signalWatchSet)
-	bus.buffer = bytes.NewBuffer([]byte{})
+
+	bus.busProxy = MessageBus{bus.Object("org.freedesktop.DBus", "/org/freedesktop/DBus")}
 	return bus, nil
 }
 
-func (p *Connection) Authenticate() error {
-	if err := p._Authenticate(new(AuthDbusCookieSha1)); err != nil {
-		return err
+func (p *Connection) Authenticate() (err error) {
+	if err = p._Authenticate(new(AuthDbusCookieSha1)); err != nil {
+		return
 	}
 	go p._RunLoop()
-	p._SendHello()
-	return nil
+	p.UniqueName, err = p.busProxy.Hello()
+	return
 }
 
 func (p *Connection) _MessageReceiver(msgChan chan<- *Message) {
@@ -354,21 +348,6 @@ func (p *Connection) UnregisterObjectPath(path ObjectPath) {
 	delete(p.objectPathHandlers, path)
 }
 
-func (p *Connection) _SendHello() error {
-	method := NewMethodCallMessage("org.freedesktop.DBus", "/org/freedesktop/DBus", "org.freedesktop.DBus", "Hello")
-	reply, err := p.SendWithReply(method)
-	if err != nil {
-		return err
-	}
-	if reply.Type == TypeError {
-		return reply.AsError()
-	}
-	if err := reply.GetArgs(&p.UniqueName); err != nil {
-		return err
-	}
-	return nil
-}
-
 func (p *Connection) _GetIntrospect(dest string, path ObjectPath) Introspect {
 	msg := NewMethodCallMessage(dest, path, "org.freedesktop.DBus.Introspectable", "Introspect")
 
@@ -384,68 +363,9 @@ func (p *Connection) _GetIntrospect(dest string, path ObjectPath) Introspect {
 	return nil
 }
 
-// Retrieve an interface by name.
-func (obj *Object) Interface(name string) *Interface {
-	if obj == nil || obj.intro == nil {
-		return nil
-	}
-
-	iface := new(Interface)
-	iface.obj = obj
-	iface.name = name
-
-	data := obj.intro.GetInterfaceData(name)
-	if nil == data {
-		return nil
-	}
-
-	iface.intro = data
-
-	return iface
-}
-
-// Call a method with the given arguments.
-func (p *Connection) Call(method *Method, args ...interface{}) ([]interface{}, error) {
-	iface := method.iface
-	msg := NewMethodCallMessage(iface.obj.dest, iface.obj.path, iface.name, method.data.GetName())
-	if len(args) > 0 {
-		if err := msg.AppendArgs(args...); err != nil {
-			return nil, err
-		}
-	}
-
-	reply, err := p.SendWithReply(msg)
-	if err != nil {
-		return nil, err
-	}
-	if reply.Type == TypeError {
-		return nil, reply.AsError()
-	}
-	return reply.GetAllArgs(), nil
-}
-
-// Emit a signal with the given arguments.
-func (p *Connection) Emit(signal *Signal, args ...interface{}) error {
-	iface := signal.iface
-
-	msg := NewSignalMessage(iface.obj.path, iface.name, signal.data.GetName())
-	msg.Dest = iface.obj.dest
-	if err := msg.AppendArgs(args...); err != nil {
-		return err
-	}
-
-	return p.Send(msg)
-}
-
 // Retrieve a specified object.
-func (p *Connection) Object(dest string, path ObjectPath) *Object {
-
-	obj := new(Object)
-	obj.path = path
-	obj.dest = dest
-	obj.intro = p._GetIntrospect(dest, path)
-
-	return obj
+func (p *Connection) Object(dest string, path ObjectPath) *ObjectProxy {
+	return &ObjectProxy{p, dest, path}
 }
 
 // Handle received signals.
@@ -453,12 +373,8 @@ func (p *Connection) WatchSignal(rule *MatchRule, handler func(*Message)) (*Sign
 	if rule.Type != TypeSignal {
 		return nil, errors.New("Match rule is not for signals")
 	}
-	method := NewMethodCallMessage("org.freedesktop.DBus", "/org/freedesktop/DBus", "org.freedesktop.DBus", "AddMatch")
-	method.AppendArgs(rule.String())
-	if reply, err := p.SendWithReply(method); err != nil {
+	if err := p.busProxy.AddMatch(rule.String()); err != nil {
 		return nil, err
-	} else if reply.Type == TypeError {
-		return nil, reply.AsError()
 	}
 
 	watch := &SignalWatch{p, *rule, handler}
@@ -474,12 +390,8 @@ func (watch *SignalWatch) Cancel() error {
 	watch.bus.handlerMutex.Unlock()
 
 	if foundMatch {
-		method := NewMethodCallMessage("org.freedesktop.DBus", "/org/freedesktop/DBus", "org.freedesktop.DBus", "RemoveMatch")
-		method.AppendArgs(watch.rule.String())
-		if reply, err := watch.bus.SendWithReply(method); err != nil {
+		if err := watch.bus.busProxy.RemoveMatch(watch.rule.String()); err != nil {
 			return err
-		} else if reply.Type == TypeError {
-			return reply.AsError()
 		}
 	}
 	return nil
