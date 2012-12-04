@@ -101,7 +101,7 @@ func (s *S) TestSendSignal(c *C) {
 			c.Error(err)
 		}
 		complete <- msg
-	}(bus1.uniqName, watchReady, complete)
+	}(bus1.UniqueName, watchReady, complete)
 
 	// Wait for the goroutine to configure the signal watch
 	<-watchReady

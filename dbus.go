@@ -114,7 +114,7 @@ func (self signalWatchSet) FindMatches(msg *Message) (matches []*SignalWatch) {
 
 type Connection struct {
 	addressMap         map[string]string
-	uniqName           string
+	UniqueName         string
 	conn               net.Conn
 	buffer             *bytes.Buffer
 
@@ -363,7 +363,7 @@ func (p *Connection) _SendHello() error {
 	if reply.Type == TypeError {
 		return reply.AsError()
 	}
-	if err := reply.GetArgs(&p.uniqName); err != nil {
+	if err := reply.GetArgs(&p.UniqueName); err != nil {
 		return err
 	}
 	return nil
