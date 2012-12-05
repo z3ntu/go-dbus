@@ -123,6 +123,10 @@ func (self signalWatchSet) FindMatches(msg *Message) (matches []*SignalWatch) {
 	return
 }
 
+type MessageFilter struct {
+	filter func(*Message) *Message
+}
+
 type Connection struct {
 	addressMap         map[string]string
 	UniqueName         string
@@ -131,6 +135,7 @@ type Connection struct {
 	lastSerial         uint32
 
 	handlerMutex       sync.Mutex // covers the next three
+	messageFilters     []*MessageFilter
 	methodCallReplies  map[uint32] chan<- *Message
 	objectPathHandlers map[ObjectPath] chan<- *Message
 	signalMatchRules   signalWatchSet
@@ -220,6 +225,7 @@ func Connect(busType StandardBus) (*Connection, error) {
 
 	bus.busProxy = BusDaemon{bus.Object(BUS_DAEMON_NAME, BUS_DAEMON_PATH)}
 
+	bus.messageFilters = []*MessageFilter{}
 	bus.methodCallReplies = make(map[uint32] chan<- *Message)
 	bus.objectPathHandlers = make(map[ObjectPath] chan<- *Message)
 	bus.signalMatchRules = make(signalWatchSet)
@@ -261,6 +267,15 @@ func (p *Connection) _RunLoop() {
 }
 
 func (p *Connection) _MessageDispatch(msg *Message) {
+	// Run the message through the registered filters, stopping
+	// processing if a filter returns nil.
+	for _, filter := range p.messageFilters {
+		msg := filter.filter(msg)
+		if msg == nil {
+			return
+		}
+	}
+
 	switch msg.Type {
 	case TypeMethodCall:
 		switch {
@@ -345,6 +360,22 @@ func (p *Connection) SendWithReply(msg *Message) (*Message, error) {
 
 	reply := <-replyChan
 	return reply, nil
+}
+
+func (p *Connection) RegisterMessageFilter(filter func (*Message) *Message) *MessageFilter {
+	msgFilter := &MessageFilter{filter}
+	p.messageFilters = append(p.messageFilters, msgFilter)
+	return msgFilter
+}
+
+func (p *Connection) UnregisterMessageFilter(filter *MessageFilter) {
+	for i, other := range p.messageFilters {
+		if other == filter {
+			p.messageFilters = append(p.messageFilters[:i], p.messageFilters[i+1:]...)
+			return
+		}
+	}
+	panic("Message filter not registered to this bus")
 }
 
 func (p *Connection) RegisterObjectPath(path ObjectPath, handler chan<- *Message) {

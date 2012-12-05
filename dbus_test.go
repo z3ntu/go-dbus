@@ -173,6 +173,33 @@ func (s *S) TestConnectionWatchNameOwner(c *C) {
 	c.Check(owners, DeepEquals, []string{bus.UniqueName, ""})
 }
 
+func (s *S) TestConnectionRegisterMessageFilter(c *C) {
+	bus, err := Connect(SessionBus)
+	c.Assert(err, Equals, nil)
+	defer bus.Close()
+	c.Assert(bus.Authenticate(), Equals, nil)
+
+	filter := bus.RegisterMessageFilter(func(msg *Message) *Message {
+		// Make a change that shows the filter ran.
+		if msg.Type == TypeMethodReturn {
+			if err := msg.AppendArgs("Added by filter"); err != nil {
+				c.Error(err)
+			}
+		}
+		return msg
+	})
+	c.Check(filter, Not(Equals), nil)
+	defer bus.UnregisterMessageFilter(filter)
+
+	msg := NewMethodCallMessage(BUS_DAEMON_NAME, BUS_DAEMON_PATH, BUS_DAEMON_IFACE, "GetId")
+	reply, err := bus.SendWithReply(msg)
+	c.Assert(err, Equals, nil)
+
+	var busId, extra string
+	c.Assert(reply.GetArgs(&busId, &extra), Equals, nil)
+	c.Assert(extra, Equals, "Added by filter")
+}
+
 func (s *S) TestSignalWatchSetAdd(c *C) {
 	set := make(signalWatchSet)
 	watch := SignalWatch{rule: MatchRule{
