@@ -29,6 +29,12 @@ type SignalWatch struct {
 	bus     *Connection
 	rule    MatchRule
 	handler func(*Message)
+
+	// If the rule tries to match against a bus name as the
+	// sender, we need to track the current owner of that name.
+	nameOwner *NameOwnerWatch
+
+	cancelled bool
 }
 
 // A structure to store the set of signal watches, keyed by object
@@ -384,11 +390,36 @@ func (p *Connection) WatchSignal(rule *MatchRule, handler func(*Message)) (*Sign
 	if rule.Type != TypeSignal {
 		return nil, errors.New("Match rule is not for signals")
 	}
+	watch := &SignalWatch{bus: p, rule: *rule, handler: handler}
+
+	// Does the rule match a bus name other than the daemon?
+	if rule.Sender != "" && rule.Sender != BUS_DAEMON_NAME {
+		var nameHandler func(string)
+		if rule.Sender[0] == ':' {
+			// For unique names, cancel the signal watch
+			// when the name is lost.
+			nameHandler = func (newOwner string) {
+				if newOwner == "" {
+					watch.Cancel()
+				}
+			}
+		} else {
+			// Otherwise, update the sender owner.
+			nameHandler = func (newOwner string) {
+				watch.rule.senderNameOwner = newOwner
+			}
+		}
+		nameOwner, err := p.WatchNameOwner(rule.Sender, nameHandler)
+		if err != nil {
+			return nil, err
+		}
+		watch.nameOwner = nameOwner
+	}
 	if err := p.busProxy.AddMatch(rule.String()); err != nil {
+		watch.nameOwner.Cancel()
 		return nil, err
 	}
 
-	watch := &SignalWatch{p, *rule, handler}
 	p.handlerMutex.Lock()
 	p.signalMatchRules.Add(watch)
 	p.handlerMutex.Unlock()
@@ -396,6 +427,10 @@ func (p *Connection) WatchSignal(rule *MatchRule, handler func(*Message)) (*Sign
 }
 
 func (watch *SignalWatch) Cancel() error {
+	if watch.cancelled {
+		return nil
+	}
+	watch.cancelled = true
 	watch.bus.handlerMutex.Lock()
 	foundMatch := watch.bus.signalMatchRules.Remove(watch)
 	watch.bus.handlerMutex.Unlock()
@@ -403,6 +438,11 @@ func (watch *SignalWatch) Cancel() error {
 	if foundMatch {
 		if err := watch.bus.busProxy.RemoveMatch(watch.rule.String()); err != nil {
 			return err
+		}
+		if watch.nameOwner != nil {
+			if err := watch.nameOwner.Cancel(); err != nil {
+				return err
+			}
 		}
 	}
 	return nil

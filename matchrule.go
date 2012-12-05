@@ -12,6 +12,8 @@ type MatchRule struct {
 	Interface string
 	Member    string
 	Arg0      string
+
+	senderNameOwner string
 }
 
 // A string representation af the MatchRule (D-Bus variant map).
@@ -42,8 +44,10 @@ func (p *MatchRule) _Match(msg *Message) bool {
 	if p.Type != TypeInvalid && p.Type != msg.Type {
 		return false
 	}
-	if p.Sender != "" && p.Sender != msg.Sender {
-		return false
+	if p.Sender != "" {
+		if !(p.Sender == msg.Sender || p.senderNameOwner == msg.Sender) {
+			return false
+		}
 	}
 	if p.Path != "" && p.Path != msg.Path {
 		return false
