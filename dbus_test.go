@@ -159,18 +159,22 @@ func (s *S) TestConnectionWatchNameOwner(c *C) {
 	c.Assert(err, Equals, nil)
 	defer watch.Cancel()
 
-	// Do not queue for ownership
-	result, err := bus.busProxy.RequestName("com.example.GoDbus", 0x4)
-	c.Assert(err, Equals, nil)
-	c.Assert(result, Equals, uint32(1)) // We are Primary Owner
+	// Our handler will be called once with the initial name owner
 	<- nameChanged
-	c.Check(owners, DeepEquals, []string{bus.UniqueName})
+	c.Check(owners, DeepEquals, []string{""})
 
-	result, err = bus.busProxy.ReleaseName("com.example.GoDbus")
-	c.Assert(err, Equals, nil)
-	c.Assert(result, Equals, uint32(1)) // Released
+	// Acquire the name, and wait for the process to complete.
+	nameAcquired := make(chan int, 1)
+	name := bus.RequestName("com.example.GoDbus", NameFlagDoNotQueue, func(*BusName) { nameAcquired <- 0 }, nil)
+	<- nameAcquired
+
 	<- nameChanged
-	c.Check(owners, DeepEquals, []string{bus.UniqueName, ""})
+	c.Check(owners, DeepEquals, []string{"", bus.UniqueName})
+
+	err = name.Release()
+	c.Assert(err, Equals, nil)
+	<- nameChanged
+	c.Check(owners, DeepEquals, []string{"", bus.UniqueName, ""})
 }
 
 func (s *S) TestConnectionRegisterMessageFilter(c *C) {
