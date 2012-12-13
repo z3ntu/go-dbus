@@ -174,13 +174,16 @@ func (name *BusName) request() {
 	switch result {
 	case 1:
 		// DBUS_REQUEST_NAME_REPLY_PRIMARY_OWNER
-		if name.acquiredCallback != nil{
+		if name.acquiredCallback != nil {
 			name.acquiredCallback(name)
 		}
 		subscribe = true
 		name.needsRelease = true
 	case 2:
 		// DBUS_REQUEST_NAME_REPLY_IN_QUEUE
+		if name.lostCallback != nil {
+			name.lostCallback(name)
+		}
 		subscribe = true
 		name.needsRelease = true
 	case 3:
