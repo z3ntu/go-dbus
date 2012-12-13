@@ -32,7 +32,7 @@ type SignalWatch struct {
 
 	// If the rule tries to match against a bus name as the
 	// sender, we need to track the current owner of that name.
-	nameOwner *NameOwnerWatch
+	nameWatch *NameWatch
 
 	cancelled bool
 }
@@ -140,8 +140,8 @@ type Connection struct {
 	objectPathHandlers map[ObjectPath] chan<- *Message
 	signalMatchRules   signalWatchSet
 
-	nameOwnerMutex     sync.Mutex
-	nameOwners         map[string] *nameOwner
+	nameInfoMutex     sync.Mutex
+	nameInfo          map[string] *nameInfo
 }
 
 type ObjectProxy struct {
@@ -230,7 +230,7 @@ func Connect(busType StandardBus) (*Connection, error) {
 	bus.objectPathHandlers = make(map[ObjectPath] chan<- *Message)
 	bus.signalMatchRules = make(signalWatchSet)
 
-	bus.nameOwners = make(map[string] *nameOwner)
+	bus.nameInfo = make(map[string] *nameInfo)
 
 	return bus, nil
 }
@@ -440,14 +440,14 @@ func (p *Connection) WatchSignal(rule *MatchRule, handler func(*Message)) (*Sign
 				watch.rule.senderNameOwner = newOwner
 			}
 		}
-		nameOwner, err := p.WatchNameOwner(rule.Sender, nameHandler)
+		nameWatch, err := p.WatchName(rule.Sender, nameHandler)
 		if err != nil {
 			return nil, err
 		}
-		watch.nameOwner = nameOwner
+		watch.nameWatch = nameWatch
 	}
 	if err := p.busProxy.AddMatch(rule.String()); err != nil {
-		watch.nameOwner.Cancel()
+		watch.nameWatch.Cancel()
 		return nil, err
 	}
 
@@ -470,8 +470,8 @@ func (watch *SignalWatch) Cancel() error {
 		if err := watch.bus.busProxy.RemoveMatch(watch.rule.String()); err != nil {
 			return err
 		}
-		if watch.nameOwner != nil {
-			if err := watch.nameOwner.Cancel(); err != nil {
+		if watch.nameWatch != nil {
+			if err := watch.nameWatch.Cancel(); err != nil {
 				return err
 			}
 		}

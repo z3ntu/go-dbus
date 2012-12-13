@@ -4,7 +4,7 @@ import (
 	. "launchpad.net/gocheck"
 )
 
-func (s *S) TestConnectionWatchNameOwner(c *C) {
+func (s *S) TestConnectionWatchName(c *C) {
 	bus, err := Connect(SessionBus)
 	c.Assert(err, Equals, nil)
 	defer bus.Close()
@@ -13,7 +13,7 @@ func (s *S) TestConnectionWatchNameOwner(c *C) {
 	// Set up the name watch
 	nameChanged := make(chan int, 1)
 	owners := []string{}
-	watch, err := bus.WatchNameOwner("com.example.GoDbus", func (newOwner string) {
+	watch, err := bus.WatchName("com.example.GoDbus", func (newOwner string) {
 		owners = append(owners, newOwner)
 		nameChanged <- 0
 	})

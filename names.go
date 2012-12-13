@@ -5,32 +5,32 @@ import (
 	"log"
 )
 
-type nameOwner struct {
+type nameInfo struct {
 	bus          *Connection
 	busName      string
 	currentOwner string
 	signalWatch  *SignalWatch
-	watches      []*NameOwnerWatch
+	watches      []*NameWatch
 }
 
-type NameOwnerWatch struct {
-	owner     *nameOwner
+type NameWatch struct {
+	info      *nameInfo
 	handler   func(newOwner string)
 	cancelled bool
 }
 
-func newNameOwner(bus *Connection, busName string) (*nameOwner, error) {
-	owner := &nameOwner{
+func newNameInfo(bus *Connection, busName string) (*nameInfo, error) {
+	info := &nameInfo{
 		bus: bus,
 		busName: busName,
-		watches: []*NameOwnerWatch{}}
+		watches: []*NameWatch{}}
 	handler := func(msg *Message) {
 		var busName, oldOwner, newOwner string
 		if err := msg.GetArgs(&busName, &oldOwner, &newOwner); err != nil {
 			log.Println("Could not decode NameOwnerChanged message:", err)
 			return
 		}
-		owner.handleOwnerChange(newOwner)
+		info.handleOwnerChange(newOwner)
 	}
 	watch, err := bus.WatchSignal(&MatchRule{
 		Type: TypeSignal,
@@ -42,15 +42,15 @@ func newNameOwner(bus *Connection, busName string) (*nameOwner, error) {
 	if err != nil {
 		return nil, err
 	}
-	owner.signalWatch = watch
+	info.signalWatch = watch
 
 	// spawn a goroutine to find the current name owner
-	go owner.checkCurrentOwner()
+	go info.checkCurrentOwner()
 
-	return owner, nil
+	return info, nil
 }
 
-func (self *nameOwner) checkCurrentOwner() {
+func (self *nameInfo) checkCurrentOwner() {
 	currentOwner, err := self.bus.busProxy.GetNameOwner(self.busName)
 	if err != nil {
 		if dbusErr, ok := err.(*Error); !ok || dbusErr.Name != "org.freedesktop.DBus.Error.NameHasNoOwner" {
@@ -63,7 +63,7 @@ func (self *nameOwner) checkCurrentOwner() {
 	}
 }
 
-func (self *nameOwner) handleOwnerChange(newOwner string) {
+func (self *nameInfo) handleOwnerChange(newOwner string) {
 	for _, watch := range self.watches {
 		if watch.handler != nil {
 			watch.handler(newOwner)
@@ -72,44 +72,44 @@ func (self *nameOwner) handleOwnerChange(newOwner string) {
 	self.currentOwner = newOwner
 }
 
-func (p *Connection) WatchNameOwner(busName string, handler func(newOwner string)) (watch *NameOwnerWatch, err error) {
-	p.nameOwnerMutex.Lock()
-	owner, ok := p.nameOwners[busName]
+func (p *Connection) WatchName(busName string, handler func(newOwner string)) (watch *NameWatch, err error) {
+	p.nameInfoMutex.Lock()
+	info, ok := p.nameInfo[busName]
 	if !ok {
-		if owner, err = newNameOwner(p, busName); err != nil {
-			p.nameOwnerMutex.Unlock()
+		if info, err = newNameInfo(p, busName); err != nil {
+			p.nameInfoMutex.Unlock()
 			return
 		}
-		p.nameOwners[busName] = owner
+		p.nameInfo[busName] = info
 	}
-	watch = &NameOwnerWatch{owner: owner, handler: handler}
-	owner.watches = append(owner.watches, watch)
-	p.nameOwnerMutex.Unlock()
+	watch = &NameWatch{info: info, handler: handler}
+	info.watches = append(info.watches, watch)
+	p.nameInfoMutex.Unlock()
 
 	// If we're hooking up to an existing nameOwner and it already
 	// knows the current name owner, tell our callback.
-	if !ok && owner.currentOwner != "" {
-		handler(owner.currentOwner)
+	if !ok && info.currentOwner != "" {
+		handler(info.currentOwner)
 	}
 	return
 }
 
-func (watch *NameOwnerWatch) Cancel() error {
+func (watch *NameWatch) Cancel() error {
 	if watch.cancelled {
 		return nil
 	}
 	watch.cancelled = true
 
-	owner := watch.owner
-	bus := owner.bus
-	bus.nameOwnerMutex.Lock()
-	defer bus.nameOwnerMutex.Unlock()
+	info := watch.info
+	bus := info.bus
+	bus.nameInfoMutex.Lock()
+	defer bus.nameInfoMutex.Unlock()
 
 	found := false
-	for i, other := range(owner.watches) {
+	for i, other := range(info.watches) {
 		if other == watch {
-			owner.watches[i] = owner.watches[len(owner.watches)-1]
-			owner.watches = owner.watches[:len(owner.watches)-1]
+			info.watches[i] = info.watches[len(info.watches)-1]
+			info.watches = info.watches[:len(info.watches)-1]
 			found = true
 			break
 		}
@@ -117,13 +117,13 @@ func (watch *NameOwnerWatch) Cancel() error {
 	if !found {
 		return errors.New("NameOwnerWatch already cancelled")
 	}
-	if len(owner.watches) != 0 {
+	if len(info.watches) != 0 {
 		// There are other watches interested in this name, so
 		// leave the nameOwner in place.
 		return nil
 	}
-	delete(bus.nameOwners, owner.busName)
-	return owner.signalWatch.Cancel()
+	delete(bus.nameInfo, info.busName)
+	return info.signalWatch.Cancel()
 }
 
 
