@@ -16,7 +16,7 @@ var (
 
 type Signature string
 
-func getSignature(t reflect.Type) (Signature, error) {
+func SignatureOf(t reflect.Type) (Signature, error) {
 	if t.AssignableTo(typeHasObjectPath) {
 		return Signature("o"), nil
 	}
@@ -45,17 +45,17 @@ func getSignature(t reflect.Type) (Signature, error) {
 		}
 		return Signature("s"), nil
 	case reflect.Array, reflect.Slice:
-		valueSig, err := getSignature(t.Elem())
+		valueSig, err := SignatureOf(t.Elem())
 		if err != nil {
 			return Signature(""), err
 		}
 		return Signature("a") + valueSig, nil
 	case reflect.Map:
-		keySig, err := getSignature(t.Key())
+		keySig, err := SignatureOf(t.Key())
 		if err != nil {
 			return Signature(""), err
 		}
-		valueSig, err := getSignature(t.Elem())
+		valueSig, err := SignatureOf(t.Elem())
 		if err != nil {
 			return Signature(""), err
 		}
@@ -68,7 +68,7 @@ func getSignature(t reflect.Type) (Signature, error) {
 
 		sig := Signature("(")
 		for i := 0; i != t.NumField(); i++ {
-			fieldSig, err := getSignature(t.Field(i).Type)
+			fieldSig, err := SignatureOf(t.Field(i).Type)
 			if err != nil {
 				return Signature(""), err
 			}
@@ -78,7 +78,7 @@ func getSignature(t reflect.Type) (Signature, error) {
 		return sig, nil
 	case reflect.Ptr:
 		// dereference pointers
-		sig, err := getSignature(t.Elem())
+		sig, err := SignatureOf(t.Elem())
 		return sig, err
 	}
 	return Signature(""), errors.New("Can not determine signature for " + t.String())
@@ -100,7 +100,7 @@ type Variant struct {
 }
 
 func (v *Variant) GetVariantSignature() (Signature, error) {
-	return getSignature(reflect.TypeOf(v.Value))
+	return SignatureOf(reflect.TypeOf(v.Value))
 }
 
 

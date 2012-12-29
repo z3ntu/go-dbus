@@ -38,7 +38,7 @@ func (self *encoder) Append(args ...interface{}) error {
 }
 
 func (self *encoder) appendValue(v reflect.Value) error {
-	signature, err := getSignature(v.Type())
+	signature, err := SignatureOf(v.Type())
 	if err != nil {
 		return err
 	}
