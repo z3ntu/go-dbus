@@ -111,6 +111,7 @@ func (self *encoder) appendValue(v reflect.Value) error {
 		self.data.WriteByte(0)
 		return nil
 	case reflect.Array, reflect.Slice:
+		self.align(4)
 		// Marshal array contents to a separate buffer so we
 		// can find its length.
 		var content encoder
@@ -122,11 +123,11 @@ func (self *encoder) appendValue(v reflect.Value) error {
 				return err
 			}
 		}
-		self.align(4)
 		binary.Write(&self.data, self.order, uint32(content.data.Len()))
 		self.data.Write(content.data.Bytes())
 		return nil
 	case reflect.Map:
+		self.align(4)
 		// Marshal array contents to a separate buffer so we
 		// can find its length.
 		var content encoder
@@ -142,7 +143,6 @@ func (self *encoder) appendValue(v reflect.Value) error {
 				return err
 			}
 		}
-		self.align(4)
 		binary.Write(&self.data, self.order, uint32(content.data.Len()))
 		self.data.Write(content.data.Bytes())
 		return nil

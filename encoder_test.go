@@ -164,6 +164,20 @@ func (s *S) TestEncoderAppendArray(c *C) {
 		164, 1, 0, 0}) // int32(420)
 }
 
+func (s *S) TestEncoderAppendArrayAlignment(c *C) {
+	enc := newEncoder("", nil, binary.LittleEndian)
+	// append a byte, which means we are no longer aligned.
+	c.Assert(enc.Append(byte(1)), Equals, nil)
+	// Now create an array.
+	c.Check(enc.Append([]uint32{42}), Equals, nil)
+	c.Check(enc.signature, Equals, Signature("yau"))
+	c.Check(enc.data.Bytes(), DeepEquals, []byte{
+		1,            // byte(1)
+		0, 0, 0,      // padding
+		4, 0, 0, 0,   // array length
+		42, 0, 0, 0}) // uint32(42)
+}
+
 func (s *S) TestEncoderAppendMap(c *C) {
 	enc := newEncoder("", nil, binary.LittleEndian)
 	if err := enc.Append(map[string]bool{"true": true}); err != nil {
@@ -173,6 +187,22 @@ func (s *S) TestEncoderAppendMap(c *C) {
 	c.Check(enc.data.Bytes(), DeepEquals, []byte{
 		20, 0, 0, 0,                       // array content length
 		0, 0, 0, 0,                        // padding to 8 bytes
+		4, 0, 0, 0, 't', 'r', 'u', 'e', 0, // "true"
+		0, 0, 0,                           // padding to 4 bytes
+		1, 0, 0, 0})                       // true
+}
+
+func (s *S) TestEncoderAppendMapAlignment(c *C) {
+	enc := newEncoder("", nil, binary.LittleEndian)
+	// append a byte, which means we are no longer aligned.
+	c.Assert(enc.Append(byte(1)), Equals, nil)
+
+	c.Check(enc.Append(map[string]bool{"true": true}), Equals, nil)
+	c.Check(enc.signature, Equals, Signature("ya{sb}"))
+	c.Check(enc.data.Bytes(), DeepEquals, []byte{
+		1,                                 // byte(1)
+		0, 0, 0,                           // padding
+		16, 0, 0, 0,                       // array content length
 		4, 0, 0, 0, 't', 'r', 'u', 'e', 0, // "true"
 		0, 0, 0,                           // padding to 4 bytes
 		1, 0, 0, 0})                       // true
