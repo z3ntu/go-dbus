@@ -46,6 +46,8 @@ func (s *S) TestSignatureNextType(c *C) {
 	c.Check(next, Equals, 4)
 	c.Check(err, Equals, nil)
 
+	next, err = Signature("{}").NextType(0)
+	c.Check(err, Not(Equals), nil)
 	next, err = Signature("{i}").NextType(0)
 	c.Check(err, Not(Equals), nil)
 	next, err = Signature("{iii}").NextType(0)

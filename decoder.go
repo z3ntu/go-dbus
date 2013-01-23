@@ -320,14 +320,12 @@ func (self *decoder) decodeValue(v reflect.Value) error {
 			return nil
 		}
 	case 'a':
-		// XXX: Need to support maps here (i.e. next signature
-		// char is '{')
 		length, err := self.readUint32()
 		if err != nil {
 			return err
 		}
 		elemSigOffset := self.sigOffset
-		afterElemOffset, err := self.signature.NextType(self.sigOffset)
+		afterElemOffset, err := self.signature.NextType(elemSigOffset)
 		if err != nil {
 			return err
 		}
@@ -362,7 +360,31 @@ func (self *decoder) decodeValue(v reflect.Value) error {
 			}
 			self.sigOffset = afterElemOffset
 			return nil
+		case v.Kind() == reflect.Map:
+			if self.signature[elemSigOffset] != '{' {
+				return errors.New("Expected type code '{' but got " + string(self.signature[elemSigOffset]) + " when decoding to map")
+			}
+			v.Set(reflect.MakeMap(v.Type()))
+			for self.dataOffset < arrayEnd {
+				self.align(8)
+				// Reset signature offset to first
+				// item in dictionary entry:
+				self.sigOffset = elemSigOffset + 1
+				key := reflect.New(v.Type().Key()).Elem()
+				value := reflect.New(v.Type().Elem()).Elem()
+				if err := self.decodeValue(key); err != nil {
+					return err
+				}
+				if err := self.decodeValue(value); err != nil {
+					return err
+				}
+				v.SetMapIndex(key, value)
+			}
+			self.sigOffset = afterElemOffset
+			return nil
 		case typeBlankInterface.AssignableTo(v.Type()):
+			// XXX: Need to support maps here (i.e. next
+			// signature char is '{')
 			array := make([]interface{}, 0)
 			for self.dataOffset < arrayEnd {
 				// Reset signature offset to the array element.
