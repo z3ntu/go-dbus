@@ -84,6 +84,64 @@ func SignatureOf(t reflect.Type) (Signature, error) {
 	return Signature(""), errors.New("Can not determine signature for " + t.String())
 }
 
+func (sig Signature) NextType(offset int) (next int, err error) {
+	if offset >= len(sig) {
+		err = errors.New("No more types codes in signature")
+		return
+	}
+	switch sig[offset] {
+	case 'y', 'b', 'n', 'q', 'i', 'u', 'x', 't', 'd', 's', 'o', 'g', 'v', 'h':
+		// A basic type code.
+		next = offset + 1
+	case 'a':
+		// An array: consume the embedded type code
+		next, err = sig.NextType(offset + 1)
+	case '{':
+		// A pair used in maps: consume the two contained types
+		next, err = sig.NextType(offset + 1)
+		if err != nil {
+			return
+		}
+		next, err = sig.NextType(next)
+		if err != nil {
+			return
+		}
+		if next >= len(sig) || sig[next] != '}' {
+			err = errors.New("Pair does not end with '}'")
+			return
+		}
+		next += 1
+	case '(':
+		// A struct: consume types until we 
+		next = offset + 1
+		for {
+			if next < len(sig) && sig[next] == ')' {
+				next += 1
+				return
+			}
+			next, err = sig.NextType(next)
+			if err != nil {
+				return
+			}
+		}
+	default:
+		err = errors.New("Unknown type code " + string(sig[offset]))
+	}
+	return
+}
+
+// Validate that the signature is a valid string of type codes
+func (sig Signature) Validate() (err error) {
+	offset := 0
+	for offset < len(sig) {
+		offset, err = sig.NextType(offset)
+		if err != nil {
+			break
+		}
+	}
+	return
+}
+
 
 type ObjectPath string
 
