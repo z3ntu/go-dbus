@@ -211,6 +211,17 @@ func (s *S) TestDecoderDecodeArray(c *C) {
 	c.Check(value3, DeepEquals, []interface{}{int32(42), int32(100)})
 }
 
+func (s *S) TestDecoderDecodeEmptyArray(c *C) {
+	dec := newDecoder("ai", []byte{
+		0, 0, 0, 0}, // array length
+		binary.LittleEndian)
+	var value []int32
+	c.Check(dec.Decode(&value), Equals, nil)
+	c.Check(dec.dataOffset, Equals, 4)
+	c.Check(dec.sigOffset, Equals, 2)
+	c.Check(value, DeepEquals, []int32{})
+}
+
 func (s *S) TestDecoderDecodeStruct(c *C) {
 	dec := newDecoder("(si)", []byte{
 		5, 0, 0, 0,                 // len("hello")

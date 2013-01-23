@@ -327,6 +327,10 @@ func (self *decoder) decodeValue(v reflect.Value) error {
 			return err
 		}
 		elemSigOffset := self.sigOffset
+		afterElemOffset, err := self.signature.NextType(self.sigOffset)
+		if err != nil {
+			return err
+		}
 		arrayEnd := self.dataOffset + int(length)
 		if len(self.data) < arrayEnd {
 			return bufferOverrunError
@@ -340,6 +344,7 @@ func (self *decoder) decodeValue(v reflect.Value) error {
 					return err
 				}
 			}
+			self.sigOffset = afterElemOffset
 			return nil
 		case v.Kind() == reflect.Slice:
 			if v.IsNil() {
@@ -355,6 +360,7 @@ func (self *decoder) decodeValue(v reflect.Value) error {
 				}
 				v.Set(reflect.Append(v, elem))
 			}
+			self.sigOffset = afterElemOffset
 			return nil
 		case typeBlankInterface.AssignableTo(v.Type()):
 			array := make([]interface{}, 0)
