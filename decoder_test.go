@@ -222,6 +222,29 @@ func (s *S) TestDecoderDecodeEmptyArray(c *C) {
 	c.Check(value, DeepEquals, []int32{})
 }
 
+func (s *S) TestDecoderDecodeArrayPaddingAfterLength(c *C) {
+	dec := newDecoder("ax", []byte{
+		8, 0, 0, 0,               // array length
+                0, 0, 0, 0,               // padding
+                42, 0, 0, 0, 0, 0, 0, 0}, // uint64(42)
+		binary.LittleEndian)
+	var value []int64
+	c.Check(dec.Decode(&value), Equals, nil)
+	c.Check(dec.dataOffset, Equals, 16)
+	c.Check(dec.sigOffset, Equals, 2)
+	c.Check(value, DeepEquals, []int64{42})
+
+	// This padding exists even for empty arays
+	dec = newDecoder("ax", []byte{
+		0, 0, 0, 0,  // array length
+                0, 0, 0, 0}, // padding
+		binary.LittleEndian)
+	c.Check(dec.Decode(&value), Equals, nil)
+	c.Check(dec.dataOffset, Equals, 8)
+	c.Check(dec.sigOffset, Equals, 2)
+	c.Check(value, DeepEquals, []int64{})
+}
+
 func (s *S) TestDecoderDecodeMap(c *C) {
 	dec := newDecoder("a{si}", []byte{
 		40, 0, 0, 0,      // array length

@@ -164,7 +164,7 @@ func (s *S) TestEncoderAppendArray(c *C) {
 		164, 1, 0, 0}) // int32(420)
 }
 
-func (s *S) TestEncoderAppendArrayAlignment(c *C) {
+func (s *S) TestEncoderAppendArrayLengthAlignment(c *C) {
 	enc := newEncoder("", nil, binary.LittleEndian)
 	// append a byte, which means we are no longer aligned.
 	c.Assert(enc.Append(byte(1)), Equals, nil)
@@ -176,6 +176,25 @@ func (s *S) TestEncoderAppendArrayAlignment(c *C) {
 		0, 0, 0,      // padding
 		4, 0, 0, 0,   // array length
 		42, 0, 0, 0}) // uint32(42)
+}
+
+func (s *S) TestEncoderAppendArrayPaddingAfterLength(c *C) {
+	enc := newEncoder("", nil, binary.LittleEndian)
+	// Now create an array with alignment 8 values.
+	c.Check(enc.Append([]int64{42}), Equals, nil)
+	c.Check(enc.signature, Equals, Signature("ax"))
+	c.Check(enc.data.Bytes(), DeepEquals, []byte{
+		8, 0, 0, 0,   // array length (not including padding)
+                0, 0, 0, 0,   // padding
+		42, 0, 0, 0, 0, 0, 0, 0}) // int64(42)
+
+	// The padding is needed, even if there are no elements in the array.
+	enc = newEncoder("", nil, binary.LittleEndian)
+	c.Check(enc.Append([]int64{}), Equals, nil)
+	c.Check(enc.signature, Equals, Signature("ax"))
+	c.Check(enc.data.Bytes(), DeepEquals, []byte{
+		0, 0, 0, 0,   // array length (not including padding)
+                0, 0, 0, 0})  // padding
 }
 
 func (s *S) TestEncoderAppendMap(c *C) {
