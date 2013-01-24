@@ -11,7 +11,6 @@ type encoder struct {
 	signature Signature
 	data bytes.Buffer
 	order binary.ByteOrder
-	offset int
 }
 
 func newEncoder(signature Signature, data []byte, order binary.ByteOrder) *encoder {
@@ -23,7 +22,7 @@ func newEncoder(signature Signature, data []byte, order binary.ByteOrder) *encod
 }
 
 func (self *encoder) align(alignment int) {
-	for (self.data.Len() + self.offset) % alignment != 0 {
+	for self.data.Len() % alignment != 0 {
 		self.data.WriteByte(0)
 	}
 }
