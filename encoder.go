@@ -37,6 +37,44 @@ func (self *encoder) Append(args ...interface{}) error {
 	return nil
 }
 
+func (self *encoder) alignForType(t reflect.Type) error {
+	// If type matches the HasObjectPath interface, treat like an
+	// ObjectPath
+	if t.AssignableTo(typeHasObjectPath) {
+		t = reflect.TypeOf(ObjectPath(""))
+	}
+	// dereference pointers
+	for t.Kind() == reflect.Ptr {
+		t = t.Elem()
+	}
+
+	switch t.Kind() {
+	case reflect.Uint8:
+		self.align(1)
+	case reflect.Int16, reflect.Uint16:
+		self.align(2)
+	case reflect.Bool, reflect.Int32, reflect.Uint32, reflect.Array, reflect.Slice, reflect.Map:
+		self.align(4)
+	case reflect.Int64, reflect.Uint64, reflect.Float64:
+		self.align(8)
+	case reflect.String:
+		if t == typeSignature {
+			self.align(1)
+		} else {
+			self.align(4)
+		}
+	case reflect.Struct:
+		if t == typeVariant {
+			self.align(1)
+		} else {
+			self.align(8)
+		}
+	default:
+		return errors.New("Don't know how to align " + t.String())
+	}
+	return nil
+}
+
 func (self *encoder) appendValue(v reflect.Value) error {
 	signature, err := SignatureOf(v.Type())
 	if err != nil {
@@ -54,13 +92,13 @@ func (self *encoder) appendValue(v reflect.Value) error {
 	for v.Kind() == reflect.Ptr {
 		v = v.Elem()
 	}
+
+	self.alignForType(v.Type())
 	switch v.Kind() {
 	case reflect.Uint8:
-		self.align(1)
 		self.data.WriteByte(byte(v.Uint()))
 		return nil
 	case reflect.Bool:
-		self.align(4)
 		var uintval uint32
 		if v.Bool() {
 			uintval = 1
@@ -70,70 +108,56 @@ func (self *encoder) appendValue(v reflect.Value) error {
 		binary.Write(&self.data, self.order, uintval)
 		return nil
 	case reflect.Int16:
-		self.align(2)
 		binary.Write(&self.data, self.order, int16(v.Int()))
 		return nil
 	case reflect.Uint16:
-		self.align(2)
 		binary.Write(&self.data, self.order, uint16(v.Uint()))
 		return nil
 	case reflect.Int32:
-		self.align(4)
 		binary.Write(&self.data, self.order, int32(v.Int()))
 		return nil
 	case reflect.Uint32:
-		self.align(4)
 		binary.Write(&self.data, self.order, uint32(v.Uint()))
 		return nil
 	case reflect.Int64:
-		self.align(8)
 		binary.Write(&self.data, self.order, int64(v.Int()))
 		return nil
 	case reflect.Uint64:
-		self.align(8)
 		binary.Write(&self.data, self.order, uint64(v.Uint()))
 		return nil
 	case reflect.Float64:
-		self.align(8)
 		binary.Write(&self.data, self.order, float64(v.Float()))
 		return nil
 	case reflect.String:
 		s := v.String()
 		// Signatures only use a single byte for the length.
 		if v.Type() == typeSignature {
-			self.align(1)
 			self.data.WriteByte(byte(len(s)))
 		} else {
-			self.align(4)
 			binary.Write(&self.data, self.order, uint32(len(s)))
 		}
 		self.data.Write([]byte(s))
 		self.data.WriteByte(0)
 		return nil
 	case reflect.Array, reflect.Slice:
-		self.align(4)
 		// Marshal array contents to a separate buffer so we
 		// can find its length.
 		var content encoder
 		content.order = self.order
-		// Offset alignment by current data and length field
-		content.offset = self.data.Len() + 4
 		for i := 0; i < v.Len(); i++ {
 			if err := content.appendValue(v.Index(i)); err != nil {
 				return err
 			}
 		}
 		binary.Write(&self.data, self.order, uint32(content.data.Len()))
+		self.alignForType(v.Type().Elem())
 		self.data.Write(content.data.Bytes())
 		return nil
 	case reflect.Map:
-		self.align(4)
 		// Marshal array contents to a separate buffer so we
 		// can find its length.
 		var content encoder
 		content.order = self.order
-		// Offset alignment by current data and length field
-		content.offset = self.data.Len() + 4
 		for _, key := range v.MapKeys() {
 			content.align(8)
 			if err := content.appendValue(key); err != nil {
@@ -144,6 +168,7 @@ func (self *encoder) appendValue(v reflect.Value) error {
 			}
 		}
 		binary.Write(&self.data, self.order, uint32(content.data.Len()))
+		self.align(8) // alignment of DICT_ENTRY
 		self.data.Write(content.data.Bytes())
 		return nil
 	case reflect.Struct:
@@ -166,7 +191,6 @@ func (self *encoder) appendValue(v reflect.Value) error {
 			self.signature = savedSig
 			return nil
 		}
-		self.align(8)
 		// XXX: save and restore the signature, since we wrote
 		// out the entire struct signature previously.
 		savedSig := self.signature

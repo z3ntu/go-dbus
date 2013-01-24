@@ -204,7 +204,7 @@ func (s *S) TestEncoderAppendMap(c *C) {
 	}
 	c.Check(enc.signature, Equals, Signature("a{sb}"))
 	c.Check(enc.data.Bytes(), DeepEquals, []byte{
-		20, 0, 0, 0,                       // array content length
+		16, 0, 0, 0,                       // array content length
 		0, 0, 0, 0,                        // padding to 8 bytes
 		4, 0, 0, 0, 't', 'r', 'u', 'e', 0, // "true"
 		0, 0, 0,                           // padding to 4 bytes
