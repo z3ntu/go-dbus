@@ -7,7 +7,6 @@ import (
 	"log"
 	"net"
 	"os"
-	"strings"
 	"sync"
 	"sync/atomic"
 )
@@ -30,7 +29,6 @@ type MessageFilter struct {
 }
 
 type Connection struct {
-	addressMap         map[string]string
 	UniqueName         string
 	conn               net.Conn
 	busProxy           BusDaemon
@@ -96,31 +94,14 @@ func Connect(busType StandardBus) (*Connection, error) {
 		return nil, errors.New("Unknown bus")
 	}
 
-	if len(address) == 0 {
-		return nil, errors.New("Unknown bus address")
-	}
-	transport := address[:strings.Index(address, ":")]
-
-	bus := new(Connection)
-	bus.addressMap = make(map[string]string)
-	for _, pair := range strings.Split(address[len(transport)+1:], ",") {
-		pair := strings.Split(pair, "=")
-		bus.addressMap[pair[0]] = pair[1]
-	}
-
-	var ok bool
-	if address, ok = bus.addressMap["path"]; ok {
-	} else if address, ok = bus.addressMap["abstract"]; ok {
-		address = "@" + address
-	} else {
-		return nil, errors.New("Unknown address key")
-	}
-
-	var err error
-	if bus.conn, err = net.Dial(transport, address); err != nil {
+	trans, err := newTransport(address)
+	if err != nil {
 		return nil, err
 	}
-
+	bus := new(Connection)
+	if bus.conn, err = trans.Dial(); err != nil {
+		return nil, err
+	}
 	if _, err = bus.conn.Write([]byte{0}); err != nil {
 		return nil, err
 	}
