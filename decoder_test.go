@@ -247,7 +247,7 @@ func (s *S) TestDecoderDecodeArrayPaddingAfterLength(c *C) {
 
 func (s *S) TestDecoderDecodeMap(c *C) {
 	dec := newDecoder("a{si}", []byte{
-		40, 0, 0, 0,      // array length
+		36, 0, 0, 0,      // array length
 		0, 0, 0, 0,       // padding
                 3, 0, 0, 0,       // len("one")
                 'o', 'n', 'e', 0, // "one"

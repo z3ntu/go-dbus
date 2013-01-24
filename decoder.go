@@ -329,6 +329,13 @@ func (self *decoder) decodeValue(v reflect.Value) error {
 		if err != nil {
 			return err
 		}
+		// Adjust data offset so we are aligned to read array
+		// elements.  Anything with an alignment of 4 or less
+		// will already be aligned due to reading the length.
+		switch self.signature[self.sigOffset] {
+		case 'x', 't', 'd', '(', '{':
+			self.align(8)
+		}
 		arrayEnd := self.dataOffset + int(length)
 		if len(self.data) < arrayEnd {
 			return bufferOverrunError
