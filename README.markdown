@@ -6,34 +6,10 @@ Look at the API on [GoPkgDoc](http://gopkgdoc.appspot.com/pkg/github.com/norisat
 Installation
 ============
 
-    goinstall github.com/norisatir/go-dbus
+    go get launchpad.net/~jamesh/go-dbus/trunk
 
 Usage
 =====
-
-Methods
--------
-
-Methods is obtained with
-
-    meth, err := conn.Object(dest, path).Interface(iface).Method(method)
-
-They are called with
-
-    out, err := conn.Call(meth)
-
-Signals
--------
-
-Signals are obtained with
-
-    sig, err := conn.Object(dest, path).Interface(iface).Signal(signal)
-
-they are emitted with
-
-    err = conn.Emit(sig)
-
-**TODO** Add signal handling usage.
 
 An example
 ----------
@@ -45,15 +21,13 @@ An example
 //      https://wiki.ubuntu.com/NotifyOSD#org.freedesktop.Notifications.Notify
 package main
 
-import "github.com/norisatir/go-dbus"
+import "launchpad.net/~jamesh/go-dbus/trunk"
 import "log"
 
 func main() {
     var (
         err error
         conn *dbus.Connection
-        method *dbus.Method
-        out []interface{}
     )
 
     // Connect to Session or System buses.
@@ -64,35 +38,23 @@ func main() {
         log.Fatal("Authentication error:", err)
     }
 
-    // Get objects.
+    // Create an object proxy
     obj := conn.Object("org.freedesktop.Notifications", "/org/freedesktop/Notifications")
 
-    // Introspect objects.
-    var intro dbus.Introspect
-    method, err = obj.Interface("org.freedesktop.DBus.Introspectable").Method("Introspect")
-    if err != nil {
-        log.Fatal(err)
-    }
-    out, err = conn.Call(method)
-    if err != nil {
-        log.Fatal("Introspect error:", err)
-    }
-    intro, err = dbus.NewIntrospect(out[0].(string))
-    m := intro.GetInterfaceData("org.freedesktop.Notifications").GetMethodData("Notify")
-    log.Printf("%s in:%s out:%s", m.GetName(), m.GetInSignature(), m.GetOutSignature())
-
     // Call object methods.
-    method, err = obj.Interface("org.freedesktop.Notifications").Method("Notify")
-    if err != nil {
-        log.Fatal(err)
-    }
-    out, err = conn.Call(method,
-		"dbus-tutorial", uint32(0), "",
+    reply, err := obj.Call("org.freedesktop.Notifications", "Notify",
+        "dbus-tutorial", uint32(0), "",
         "dbus-tutorial", "You've been notified!",
-		[]interface{}{}, map[string]interface{}{}, int32(-1))
+	[]string{}, map[string]dbus.Variant{}, int32(-1))
     if err != nil {
         log.Fatal("Notification error:", err)
     }
-    log.Print("Notification id:", out[0])
+
+    // Parse the reply message
+    var notification_id uint32
+    if err := reply.GetArgs(&notification_id); err != nil {
+        log.Fatal(err)
+    }
+    log.Print("Notification id:", notification_id)
 }
 ```
