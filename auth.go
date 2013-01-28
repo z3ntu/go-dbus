@@ -166,6 +166,8 @@ func authenticate(conn net.Conn, authenticators []Authenticator) error {
 					// the next mechanism.
 					reply, err = send([]byte("CANCEL"))
 				}
+			default:
+				return errors.New("Unknown response from server: " + string(bytes.Join(reply, []byte(" "))))
 			}
 		}
 		if success {
