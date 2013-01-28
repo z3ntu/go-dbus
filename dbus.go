@@ -102,9 +102,9 @@ func Connect(busType StandardBus) (*Connection, error) {
 	if bus.conn, err = trans.Dial(); err != nil {
 		return nil, err
 	}
-	if _, err = bus.conn.Write([]byte{0}); err != nil {
-		return nil, err
-	}
+	//if _, err = bus.conn.Write([]byte{0}); err != nil {
+	//	return nil, err
+	//}
 
 	bus.busProxy = BusDaemon{bus.Object(BUS_DAEMON_NAME, BUS_DAEMON_PATH)}
 
@@ -119,7 +119,7 @@ func Connect(busType StandardBus) (*Connection, error) {
 }
 
 func (p *Connection) Authenticate() (err error) {
-	if err = p._Authenticate(new(AuthDbusCookieSha1)); err != nil {
+	if err = authenticate(p.conn, nil); err != nil {
 		return
 	}
 	go p._RunLoop()

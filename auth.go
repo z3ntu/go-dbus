@@ -9,13 +9,14 @@ import (
 	"errors"
 	"io"
 	"os"
+	"net"
 	"strconv"
 )
 
 type Authenticator interface {
 	Mechanism() []byte
 	InitialResponse() []byte
-	ProcessData([]byte) ([]byte, error)
+	ProcessData(challenge []byte) ([]byte, error)
 }
 
 type AuthExternal struct {
@@ -102,50 +103,81 @@ func (p *AuthDbusCookieSha1) ProcessData(mesg []byte) ([]byte, error) {
 	resp := bytes.Join([][]byte{challenge, []byte(hex.EncodeToString(hash.Sum(nil)))}, []byte(" "))
 	respHex := make([]byte, hex.EncodedLen(len(resp)))
 	hex.Encode(respHex, resp)
-	return append([]byte("DATA "), respHex...), nil
+	return respHex, nil
 }
 
-func min(l, r int) int {
-	if l < r {
-		return l
+func authenticate(conn net.Conn, authenticators []Authenticator) error {
+	// If no authenticators are provided, try them all
+	if authenticators == nil {
+		authenticators = []Authenticator{
+			new(AuthExternal),
+			new(AuthDbusCookieSha1)}
 	}
-	return r
-}
 
-func (p *Connection) _Authenticate(mech Authenticator) error {
-	inStream := bufio.NewReader(p.conn)
-	msg := bytes.Join([][]byte{[]byte("AUTH"), mech.Mechanism(), mech.InitialResponse()}, []byte(" "))
-	_, err := p.conn.Write(append(msg, "\r\n"...))
+	// The authentication process starts by writing a nul byte
+	if _, err := conn.Write([]byte{0}); err != nil {
+		return err
+	}
 
-	for {
-		mesg, _, _ := inStream.ReadLine()
-
-		switch {
-		case bytes.HasPrefix(mesg, []byte("DATA")):
-			var resp []byte
-			resp, err = mech.ProcessData(mesg[min(len("DATA "), len(mesg)):])
-			if err != nil {
-				p.conn.Write([]byte("CANCEL\r\n"))
-			}
-			p.conn.Write(append(resp, "\r\n"...))
-
-		case bytes.HasPrefix(mesg, []byte("OK")),
-			bytes.HasPrefix(mesg, []byte("AGREE_UNIX_FD")):
-			p.conn.Write([]byte("BEGIN\r\n"))
-			return nil
-
-		case bytes.HasPrefix(mesg, []byte("REJECTED")):
+	inStream := bufio.NewReader(conn)
+	send := func(command ...[]byte) ([][]byte, error) {
+		msg := bytes.Join(command, []byte(" "))
+		_, err := conn.Write(append(msg, []byte("\r\n")...))
+		if err != nil {
+			return nil, err
+		}
+		line, isPrefix, err := inStream.ReadLine()
+		if err != nil {
+			return nil, err
+		}
+		if isPrefix {
+			return nil, errors.New("Received line is too long")
+		}
+		return bytes.Split(line, []byte(" ")), err
+	}
+	success := false
+	for _, auth := range authenticators {
+		reply, err := send([]byte("AUTH"), auth.Mechanism(), auth.InitialResponse())
+		StatementLoop:
+		for {
 			if err != nil {
 				return err
 			}
-			return errors.New("Rejected: " + string(mesg[min(len("REJECTED "), len(mesg)):]))
-
-		case bytes.HasPrefix(mesg, []byte("ERROR")):
-			return errors.New("Error: " + string(mesg[min(len("ERROR "), len(mesg)):]))
-
-		default:
-			p.conn.Write([]byte("ERROR\r\n"))
+			if len(reply) < 1 {
+				return errors.New("No response command from server")
+			}
+			switch string(reply[0]) {
+			case "OK":
+				success = true
+				break StatementLoop
+			case "REJECTED":
+				// XXX: should note the list of
+				// supported mechanisms
+				break StatementLoop
+			case "ERROR":
+				return errors.New("Received error from server: " + string(bytes.Join(reply, []byte(" "))))
+			case "DATA":
+				var response []byte
+				response, err = auth.ProcessData(reply[1])
+				if err == nil {
+					reply, err = send([]byte("DATA"), response)
+				} else {
+					// Cancel so we can move on to
+					// the next mechanism.
+					reply, err = send([]byte("CANCEL"))
+				}
+			}
 		}
+		if success {
+			break
+		}
+	}
+	if !success {
+		return errors.New("Could not authenticate with any mechanism")
+	}
+	// XXX: UNIX FD negotiation would go here.
+	if _, err := conn.Write([]byte("BEGIN\r\n")); err != nil {
+		return err
 	}
 	return nil
 }
