@@ -1,6 +1,7 @@
 package dbus
 
 import (
+	"bytes"
 	"encoding/binary"
 	"errors"
 	"io"
@@ -248,8 +249,7 @@ func readMessage(r io.Reader) (*Message, error) {
 	return msg, nil
 }
 
-func (p *Message) _Marshal() ([]byte, error) {
-	// encode optional fields
+func (p *Message) WriteTo(w io.Writer) (int64, error) {
 	fields := make([]headerField, 0, 10)
 	if p.Path != "" {
 		fields = append(fields, headerField{1, Variant{p.Path}})
@@ -283,17 +283,36 @@ func (p *Message) _Marshal() ([]byte, error) {
 	case binary.BigEndian:
 		orderTag = 'B'
 	default:
-		return nil, errors.New("Unknown byte order: " + p.order.String())
+		return 0, errors.New("Unknown byte order: " + p.order.String())
 	}
 
-	message := newEncoder("", nil, p.order)
-	if err := message.Append(orderTag, byte(p.Type), byte(p.Flags), byte(p.Protocol), uint32(len(p.body)), p.serial, fields); err != nil {
+	header := newEncoder("", nil, p.order)
+	if err := header.Append(orderTag, byte(p.Type), byte(p.Flags), byte(p.Protocol), uint32(len(p.body)), p.serial, fields); err != nil {
+		return 0, err
+	}
+
+	// Add alignment bytes for body
+	header.align(8)
+	m, err := w.Write(header.data.Bytes())
+	if err != nil {
+		return int64(m), err
+	} else if m != header.data.Len() {
+		return int64(m), errors.New("Failed to write complete message header")
+	}
+
+	n, err := w.Write(p.body)
+	if err != nil {
+		return int64(m + n), err
+	} else if n != len(p.body) {
+		return int64(m + n), errors.New("Failed to write complete message body")
+	}
+	return int64(m + n), nil
+}
+
+func (p *Message) _Marshal() ([]byte, error) {
+	buffer := new(bytes.Buffer)
+	if _, err := p.WriteTo(buffer); err != nil {
 		return nil, err
 	}
-
-	// append the body
-	message.align(8)
-	message.data.Write(p.body)
-
-	return message.data.Bytes(), nil
+	return buffer.Bytes(), nil
 }

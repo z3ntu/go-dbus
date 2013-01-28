@@ -62,7 +62,7 @@ func (s *S) TestReadMessage(c *C) {
 	}
 }
 
-func (s *S) TestMarshalMessage(c *C) {
+func (s *S) TestWriteMessage(c *C) {
 	msg := newMessage()
 	msg.Type = TypeMethodCall
 	msg.Flags = MessageFlag(0)
@@ -75,12 +75,11 @@ func (s *S) TestMarshalMessage(c *C) {
 		c.Error(err)
 	}
 
-	buff, err := msg._Marshal()
-	if err != nil {
-		c.Error(err)
-	} else {
-		c.Check(buff, DeepEquals, testMessage)
-	}
+	buff := new(bytes.Buffer)
+	n, err := msg.WriteTo(buff)
+	c.Check(err, Equals, nil)
+	c.Check(n, Equals, int64(len(testMessage)))
+	c.Check(buff.Bytes(), DeepEquals, testMessage)
 }
 
 func (s* S) TestNewMethodCallMessage(c *C) {
