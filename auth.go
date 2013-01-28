@@ -16,7 +16,7 @@ import (
 type Authenticator interface {
 	Mechanism() []byte
 	InitialResponse() []byte
-	ProcessData(challenge []byte) ([]byte, error)
+	ProcessData(challenge []byte) (response []byte, err error)
 }
 
 type AuthExternal struct {
@@ -27,7 +27,7 @@ func (p *AuthExternal) Mechanism() []byte {
 }
 
 func (p *AuthExternal) InitialResponse() []byte {
-	uid := []byte(strconv.Itoa(os.Getuid()))
+	uid := []byte(strconv.Itoa(os.Geteuid()))
 	uidHex := make([]byte, hex.EncodedLen(len(uid)))
 	hex.Encode(uidHex, uid)
 	return uidHex
