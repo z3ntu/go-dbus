@@ -102,9 +102,6 @@ func Connect(busType StandardBus) (*Connection, error) {
 	if bus.conn, err = trans.Dial(); err != nil {
 		return nil, err
 	}
-	//if _, err = bus.conn.Write([]byte{0}); err != nil {
-	//	return nil, err
-	//}
 
 	bus.busProxy = BusDaemon{bus.Object(BUS_DAEMON_NAME, BUS_DAEMON_PATH)}
 
@@ -214,11 +211,9 @@ func (p *Connection) nextSerial() uint32 {
 
 func (p *Connection) Send(msg *Message) error {
 	msg.setSerial(p.nextSerial())
-	buff, err := msg._Marshal()
-	if err != nil {
+	if _, err := msg.WriteTo(p.conn); err != nil {
 		return err
 	}
-	p.conn.Write(buff)
 	return nil
 }
 
@@ -229,17 +224,18 @@ func (p *Connection) SendWithReply(msg *Message) (*Message, error) {
 	}
 	serial := p.nextSerial()
 	msg.setSerial(serial)
-	buff, err := msg._Marshal()
-	if err != nil {
-		return nil, err
-	}
 
 	replyChan := make(chan *Message, 1)
 	p.handlerMutex.Lock()
 	p.methodCallReplies[serial] = replyChan
 	p.handlerMutex.Unlock()
 
-	p.conn.Write(buff)
+	if _, err := msg.WriteTo(p.conn); err != nil {
+		p.handlerMutex.Lock()
+		delete(p.methodCallReplies, serial)
+		p.handlerMutex.Unlock()
+		return nil, err
+	}
 
 	reply := <-replyChan
 	return reply, nil

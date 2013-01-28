@@ -1,7 +1,6 @@
 package dbus
 
 import (
-	"bytes"
 	"encoding/binary"
 	"errors"
 	"io"
@@ -307,12 +306,4 @@ func (p *Message) WriteTo(w io.Writer) (int64, error) {
 		return int64(m + n), errors.New("Failed to write complete message body")
 	}
 	return int64(m + n), nil
-}
-
-func (p *Message) _Marshal() ([]byte, error) {
-	buffer := new(bytes.Buffer)
-	if _, err := p.WriteTo(buffer); err != nil {
-		return nil, err
-	}
-	return buffer.Bytes(), nil
 }
