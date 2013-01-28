@@ -52,6 +52,20 @@ func (s *S) TestDBus(c *C) {
 	}
 }
 
+func (s *S) TestConnectionConnectSessionBus(c *C) {
+	bus, err := Connect(SessionBus)
+	c.Assert(err, Equals, nil)
+	defer bus.Close()
+	c.Check(bus.Authenticate(), Equals, nil)
+}
+
+func (s *S) TestConnectionConnectSystemBus(c *C) {
+	bus, err := Connect(SystemBus)
+	c.Assert(err, Equals, nil)
+	defer bus.Close()
+	c.Check(bus.Authenticate(), Equals, nil)
+}
+
 func (s *S) TestConnectionRegisterMessageFilter(c *C) {
 	bus, err := Connect(SessionBus)
 	c.Assert(err, Equals, nil)
