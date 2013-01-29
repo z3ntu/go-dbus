@@ -88,7 +88,7 @@ func (p *Connection) WatchName(busName string, handler func(newOwner string)) (w
 
 	// If we're hooking up to an existing nameOwner and it already
 	// knows the current name owner, tell our callback.
-	if !ok && info.currentOwner != "" {
+	if ok && info.currentOwner != "" {
 		handler(info.currentOwner)
 	}
 	return
