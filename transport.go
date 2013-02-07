@@ -2,6 +2,7 @@ package dbus
 
 import (
 	"errors"
+	"io/ioutil"
 	"net"
 	"net/url"
 	"strings"
@@ -41,7 +42,7 @@ func newTransport(address string) (transport, error) {
 		} else {
 			return nil, errors.New("unix transport requires 'path' or 'abstract' options")
 		}
-	case "tcp":
+	case "tcp", "nonce-tcp":
 		address := options["host"] + ":" + options["port"]
 		var family string
 		switch options["family"] {
@@ -52,15 +53,19 @@ func newTransport(address string) (transport, error) {
 		default:
 			return nil, errors.New("Unknown family for tcp transport: " + options["family"])
 		}
-		return &tcpTransport{address, family}, nil
+		if transportType == "tcp" {
+			return &tcpTransport{address, family}, nil
+		} else {
+			nonceFile := options["noncefile"]
+			return &nonceTcpTransport{address, family, nonceFile}, nil
+		}
 	// These can be implemented later as needed
-	case "nonce-tcp":
-		// Like above, but with noncefile
 	case "launchd":
 		// Perform newTransport() on contents of
 		// options["env"] environment variable
 	case "systemd":
-		// Socket Activation via LISTEN_PID/LISTEN_FDS
+		// Only used when systemd is starting the message bus,
+		// so probably not needed in a client library.
 	case "unixexec":
 		// exec a process with a socket hooked to stdin/stdout
 	}
@@ -84,3 +89,23 @@ func (trans *tcpTransport) Dial() (net.Conn, error) {
 	return net.Dial(trans.Family, trans.Address)
 }
 
+type nonceTcpTransport struct {
+	Address, Family, NonceFile string
+}
+
+func (trans *nonceTcpTransport) Dial() (net.Conn, error) {
+	data, err := ioutil.ReadFile(trans.NonceFile)
+	if err != nil {
+		return nil, err
+	}
+	conn, err := net.Dial(trans.Family, trans.Address)
+	if err != nil {
+		return nil, err
+	}
+	// Write the nonce data to the socket
+	if _, err := conn.Write(data); err != nil {
+		conn.Close()
+		return nil, err
+	}
+	return conn, nil
+}
