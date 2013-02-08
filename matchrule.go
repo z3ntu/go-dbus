@@ -40,7 +40,7 @@ func (p *MatchRule) String() string {
 	return strings.Join(params, ",")
 }
 
-func (p *MatchRule) _Match(msg *Message) bool {
+func (p *MatchRule) Match(msg *Message) bool {
 	if p.Type != TypeInvalid && p.Type != msg.Type {
 		return false
 	}

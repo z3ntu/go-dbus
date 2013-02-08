@@ -92,7 +92,7 @@ func (self signalWatchSet) FindMatches(msg *Message) (matches []*SignalWatch) {
 					continue
 				}
 				for _, watch := range watches {
-					if watch.rule._Match(msg) {
+					if watch.rule.Match(msg) {
 						matches = append(matches, watch)
 					}
 				}

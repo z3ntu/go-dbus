@@ -26,13 +26,13 @@ func (s *S) TestMatchRuleMatch(c *C) {
 		Type: TypeSignal,
 		Interface: "org.freedesktop.DBus",
 		Member: "NameOwnerChanged"}
-	c.Check(mr._Match(msg), Equals, true)
+	c.Check(mr.Match(msg), Equals, true)
 
 	mr = MatchRule{
 		Type: TypeSignal,
 		Interface: "org.freedesktop.DBus",
 		Member: "NameAcquired"}
-	c.Check(mr._Match(msg), Equals, false)
+	c.Check(mr.Match(msg), Equals, false)
 
 	// Check matching against first argument.
 	mr = MatchRule{
@@ -40,7 +40,7 @@ func (s *S) TestMatchRuleMatch(c *C) {
 		Interface: "org.freedesktop.DBus",
 		Member: "NameOwnerChanged",
 		Arg0: "com.example.Foo"}
-	c.Check(mr._Match(msg), Equals, true)
+	c.Check(mr.Match(msg), Equals, true)
 	mr.Arg0 = "com.example.Bar"
-	c.Check(mr._Match(msg), Equals, false)
+	c.Check(mr.Match(msg), Equals, false)
 }
