@@ -1,3 +1,6 @@
+// Package dbus provides a client interface to the D-Bus IPC system.
+// It can be used to talk to system services (via the "system bus") or
+// services within the user's session (via the "session bus").
 package dbus
 
 import (
@@ -14,7 +17,7 @@ import (
 type StandardBus int
 
 const (
-	SessionBus StandardBus = iota
+	SessionBus = StandardBus(iota)
 	SystemBus
 )
 
@@ -28,7 +31,9 @@ type MessageFilter struct {
 	filter func(*Message) *Message
 }
 
+// Connection represents a connection to a message bus.
 type Connection struct {
+	// The unique name of this connection on the message bus.
 	UniqueName         string
 	conn               net.Conn
 	busProxy           BusDaemon
@@ -44,6 +49,9 @@ type Connection struct {
 	nameInfo          map[string] *nameInfo
 }
 
+// ObjectProxy represents a remote object on the bus.  It can be used
+// to simplify constructing method calls, and acts as a basis for
+// D-Bus interface client stubs.
 type ObjectProxy struct {
 	bus *Connection
 	destination string
@@ -54,6 +62,13 @@ func (o *ObjectProxy) GetObjectPath() ObjectPath {
 	return o.path
 }
 
+// Call the given method on the remote object.
+//
+// On success, the reply message will be returned, whose arguments can
+// be unpacked with its GetArgs() method.
+//
+// On failure (both network failures and D-Bus level errors), an error
+// will be returned.
 func (o *ObjectProxy) Call(iface, method string, args ...interface{}) (*Message, error) {
 	msg := NewMethodCallMessage(o.destination, o.path, iface, method)
 	if err := msg.AppendArgs(args...); err != nil {
@@ -78,6 +93,7 @@ func (o *ObjectProxy) WatchSignal(iface, member string, handler func(*Message)) 
 		Member: member}, handler)
 }
 
+// Connect returns a connection to the message bus identified by busType.
 func Connect(busType StandardBus) (*Connection, error) {
 	var address string
 
