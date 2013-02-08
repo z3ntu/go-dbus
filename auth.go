@@ -13,45 +13,45 @@ import (
 	"strconv"
 )
 
-type Authenticator interface {
+type authenticator interface {
 	Mechanism() []byte
 	InitialResponse() []byte
 	ProcessData(challenge []byte) (response []byte, err error)
 }
 
-type AuthExternal struct {
+type authExternal struct {
 }
 
-func (p *AuthExternal) Mechanism() []byte {
+func (p *authExternal) Mechanism() []byte {
 	return []byte("EXTERNAL")
 }
 
-func (p *AuthExternal) InitialResponse() []byte {
+func (p *authExternal) InitialResponse() []byte {
 	uid := []byte(strconv.Itoa(os.Geteuid()))
 	uidHex := make([]byte, hex.EncodedLen(len(uid)))
 	hex.Encode(uidHex, uid)
 	return uidHex
 }
 
-func (p *AuthExternal) ProcessData([]byte) ([]byte, error) {
+func (p *authExternal) ProcessData([]byte) ([]byte, error) {
 	return nil, errors.New("Unexpected Response")
 }
 
-type AuthDbusCookieSha1 struct {
+type authDbusCookieSha1 struct {
 }
 
-func (p *AuthDbusCookieSha1) Mechanism() []byte {
+func (p *authDbusCookieSha1) Mechanism() []byte {
 	return []byte("DBUS_COOKIE_SHA1")
 }
 
-func (p *AuthDbusCookieSha1) InitialResponse() []byte {
+func (p *authDbusCookieSha1) InitialResponse() []byte {
 	user := []byte(os.Getenv("USER"))
 	userHex := make([]byte, hex.EncodedLen(len(user)))
 	hex.Encode(userHex, user)
 	return userHex
 }
 
-func (p *AuthDbusCookieSha1) ProcessData(mesg []byte) ([]byte, error) {
+func (p *authDbusCookieSha1) ProcessData(mesg []byte) ([]byte, error) {
 	decodedLen, err := hex.Decode(mesg, mesg)
 	if err != nil {
 		return nil, err
@@ -106,12 +106,12 @@ func (p *AuthDbusCookieSha1) ProcessData(mesg []byte) ([]byte, error) {
 	return respHex, nil
 }
 
-func authenticate(conn net.Conn, authenticators []Authenticator) error {
+func authenticate(conn net.Conn, authenticators []authenticator) error {
 	// If no authenticators are provided, try them all
 	if authenticators == nil {
-		authenticators = []Authenticator{
-			new(AuthExternal),
-			new(AuthDbusCookieSha1)}
+		authenticators = []authenticator{
+			new(authExternal),
+			new(authDbusCookieSha1)}
 	}
 
 	// The authentication process starts by writing a nul byte
