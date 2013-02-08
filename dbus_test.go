@@ -40,9 +40,8 @@ func (test callTest) Call(c *Connection) error {
 
 func (s *S) TestDBus(c *C) {
 	bus, err := Connect(SessionBus)
-	c.Assert(err, Equals, nil)
+	c.Assert(err, IsNil)
 	defer bus.Close()
-	c.Assert(bus.Authenticate(), Equals, nil)
 
 	for i, test := range callTests {
 		err = test.Call(bus)
@@ -54,23 +53,20 @@ func (s *S) TestDBus(c *C) {
 
 func (s *S) TestConnectionConnectSessionBus(c *C) {
 	bus, err := Connect(SessionBus)
-	c.Assert(err, Equals, nil)
-	defer bus.Close()
-	c.Check(bus.Authenticate(), Equals, nil)
+	c.Assert(err, IsNil)
+	c.Check(bus.Close(), IsNil)
 }
 
 func (s *S) TestConnectionConnectSystemBus(c *C) {
 	bus, err := Connect(SystemBus)
-	c.Assert(err, Equals, nil)
-	defer bus.Close()
-	c.Check(bus.Authenticate(), Equals, nil)
+	c.Assert(err, IsNil)
+	c.Check(bus.Close(), IsNil)
 }
 
 func (s *S) TestConnectionRegisterMessageFilter(c *C) {
 	bus, err := Connect(SessionBus)
-	c.Assert(err, Equals, nil)
+	c.Assert(err, IsNil)
 	defer bus.Close()
-	c.Assert(bus.Authenticate(), Equals, nil)
 
 	filter := bus.RegisterMessageFilter(func(msg *Message) *Message {
 		// Make a change that shows the filter ran.
@@ -81,14 +77,14 @@ func (s *S) TestConnectionRegisterMessageFilter(c *C) {
 		}
 		return msg
 	})
-	c.Check(filter, Not(Equals), nil)
+	c.Check(filter, NotNil)
 	defer bus.UnregisterMessageFilter(filter)
 
 	msg := NewMethodCallMessage(BUS_DAEMON_NAME, BUS_DAEMON_PATH, BUS_DAEMON_IFACE, "GetId")
 	reply, err := bus.SendWithReply(msg)
-	c.Assert(err, Equals, nil)
+	c.Assert(err, IsNil)
 
 	var busId, extra string
-	c.Assert(reply.GetArgs(&busId, &extra), Equals, nil)
+	c.Assert(reply.GetArgs(&busId, &extra), IsNil)
 	c.Assert(extra, Equals, "Added by filter")
 }

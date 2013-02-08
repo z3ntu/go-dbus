@@ -6,9 +6,8 @@ import (
 
 func (s *S) TestConnectionWatchName(c *C) {
 	bus, err := Connect(SessionBus)
-	c.Assert(err, Equals, nil)
+	c.Assert(err, IsNil)
 	defer bus.Close()
-	c.Assert(bus.Authenticate(), Equals, nil)
 
 	// Set up the name watch
 	nameChanged := make(chan int, 1)
@@ -17,7 +16,7 @@ func (s *S) TestConnectionWatchName(c *C) {
 		owners = append(owners, newOwner)
 		nameChanged <- 0
 	})
-	c.Assert(err, Equals, nil)
+	c.Assert(err, IsNil)
 	defer watch.Cancel()
 
 	// Our handler will be called once with the initial name owner
@@ -33,40 +32,37 @@ func (s *S) TestConnectionWatchName(c *C) {
 	c.Check(owners, DeepEquals, []string{"", bus.UniqueName})
 
 	err = name.Release()
-	c.Assert(err, Equals, nil)
+	c.Assert(err, IsNil)
 	<- nameChanged
 	c.Check(owners, DeepEquals, []string{"", bus.UniqueName, ""})
 }
 
 func (s *S) TestConnectionRequestName(c *C) {
 	bus, err := Connect(SessionBus)
-	c.Assert(err, Equals, nil)
+	c.Assert(err, IsNil)
 	defer bus.Close()
-	c.Assert(bus.Authenticate(), Equals, nil)
 
 	nameAcquired := make(chan int, 1)
 	name := bus.RequestName("com.example.GoDbus", 0, func (*BusName) { nameAcquired <- 0 }, nil)
-	c.Check(name, Not(Equals), nil)
+	c.Check(name, NotNil)
 
 	<- nameAcquired
 	owner, err := bus.busProxy.GetNameOwner("com.example.GoDbus")
-	c.Check(err, Equals, nil)
+	c.Check(err, IsNil)
 	c.Check(owner, Equals, bus.UniqueName)
 
-	c.Check(name.Release(), Equals, nil)
+	c.Check(name.Release(), IsNil)
 }
 
 func (s *S) TestConnectionRequestNameQueued(c *C) {
 	// Acquire the name on a second connection
 	bus1, err := Connect(SessionBus)
-	c.Assert(err, Equals, nil)
+	c.Assert(err, IsNil)
 	defer bus1.Close()
-	c.Assert(bus1.Authenticate(), Equals, nil)
 
 	bus2, err := Connect(SessionBus)
-	c.Assert(err, Equals, nil)
+	c.Assert(err, IsNil)
 	defer bus2.Close()
-	c.Assert(bus2.Authenticate(), Equals, nil)
 
 	ready := make(chan int, 1)
 	name1 := bus1.RequestName("com.example.GoDbus", 0, func (*BusName) { ready <- 0 }, nil)
@@ -88,24 +84,22 @@ func (s *S) TestConnectionRequestNameQueued(c *C) {
 	c.Check(callLog, DeepEquals, []string{"lost"})
 
 	// Release the name on the first connection
-	c.Check(name1.Release(), Equals, nil)
+	c.Check(name1.Release(), IsNil)
 
 	<- called
 	c.Check(callLog, DeepEquals, []string{"lost", "acquired"})
-	c.Check(name2.Release(), Equals, nil)
+	c.Check(name2.Release(), IsNil)
 }
 
 func (s *S) TestConnectionRequestNameDoNotQueue(c *C) {
 	// Acquire the name on a second connection
 	bus1, err := Connect(SessionBus)
-	c.Assert(err, Equals, nil)
+	c.Assert(err, IsNil)
 	defer bus1.Close()
-	c.Assert(bus1.Authenticate(), Equals, nil)
 
 	bus2, err := Connect(SessionBus)
-	c.Assert(err, Equals, nil)
+	c.Assert(err, IsNil)
 	defer bus2.Close()
-	c.Assert(bus2.Authenticate(), Equals, nil)
 
 	ready := make(chan int, 1)
 	name1 := bus1.RequestName("com.example.GoDbus", 0, func (*BusName) { ready <- 0 }, nil)
@@ -127,20 +121,18 @@ func (s *S) TestConnectionRequestNameDoNotQueue(c *C) {
 	c.Check(name2.needsRelease, Equals, false)
 	c.Check(callLog, DeepEquals, []string{"lost"})
 
-	c.Check(name2.Release(), Equals, nil)
+	c.Check(name2.Release(), IsNil)
 }
 
 func (s *S) TestConnectionRequestNameAllowReplacement(c *C) {
 	// Acquire the name on a second connection
 	bus1, err := Connect(SessionBus)
-	c.Assert(err, Equals, nil)
+	c.Assert(err, IsNil)
 	defer bus1.Close()
-	c.Assert(bus1.Authenticate(), Equals, nil)
 
 	bus2, err := Connect(SessionBus)
-	c.Assert(err, Equals, nil)
+	c.Assert(err, IsNil)
 	defer bus2.Close()
-	c.Assert(bus2.Authenticate(), Equals, nil)
 
 	callLog1 := []string{}
 	called1 := make(chan int, 1)

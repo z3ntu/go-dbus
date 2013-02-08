@@ -119,25 +119,30 @@ func Connect(busType StandardBus) (*Connection, error) {
 		return nil, err
 	}
 
-	bus.busProxy = BusDaemon{bus.Object(BUS_DAEMON_NAME, BUS_DAEMON_PATH)}
+	if err = authenticate(bus.conn, nil); err != nil {
+		bus.conn.Close()
+		return nil, err
+	}
 
+	bus.busProxy = BusDaemon{bus.Object(BUS_DAEMON_NAME, BUS_DAEMON_PATH)}
 	bus.messageFilters = []*MessageFilter{}
 	bus.methodCallReplies = make(map[uint32] chan<- *Message)
 	bus.objectPathHandlers = make(map[ObjectPath] chan<- *Message)
 	bus.signalMatchRules = make(signalWatchSet)
-
 	bus.nameInfo = make(map[string] *nameInfo)
+
+	go bus._RunLoop()
+	if bus.UniqueName, err = bus.busProxy.Hello(); err != nil {
+		bus.Close()
+		return nil, err
+	}
 
 	return bus, nil
 }
 
-func (p *Connection) Authenticate() (err error) {
-	if err = authenticate(p.conn, nil); err != nil {
-		return
-	}
-	go p._RunLoop()
-	p.UniqueName, err = p.busProxy.Hello()
-	return
+func (p *Connection) Authenticate() error {
+	log.Println("dbus.Connection.Authenticate() is deprecated.  This call can be removed")
+	return nil
 }
 
 func (p *Connection) _MessageReceiver(msgChan chan<- *Message) {

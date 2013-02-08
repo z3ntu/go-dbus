@@ -6,9 +6,8 @@ import (
 
 func (s *S) TestConnectionWatchSignal(c *C) {
 	bus1, err := Connect(SessionBus)
-	c.Assert(err, Equals, nil)
+	c.Assert(err, IsNil)
 	defer bus1.Close()
-	c.Assert(bus1.Authenticate(), Equals, nil)
 
 	// Set up a second bus connection to receive a signal.
 	watchReady := make(chan int)
@@ -22,12 +21,6 @@ func (s *S) TestConnectionWatchSignal(c *C) {
 			return
 		}
 		defer bus2.Close()
-		if err := bus2.Authenticate(); err != nil {
-			c.Error(err)
-			watchReady <- 0
-			complete <- nil
-			return
-		}
 		msgChan := make(chan *Message)
 		watch, err := bus2.WatchSignal(&MatchRule{
 			Type: TypeSignal,
@@ -60,18 +53,17 @@ func (s *S) TestConnectionWatchSignal(c *C) {
 	}
 
 	signal2 := <- complete
-	c.Check(signal2, Not(Equals), nil)
+	c.Check(signal2, NotNil)
 }
 
 func (s *S) TestConnectionWatchSignalWithBusName(c *C) {
 	bus, err := Connect(SessionBus)
-	c.Assert(err, Equals, nil)
+	c.Assert(err, IsNil)
 	defer bus.Close()
-	c.Assert(bus.Authenticate(), Equals, nil)
 
 	// Request a bus name
 	result, err := bus.busProxy.RequestName("com.example.GoDbus", 0x4)
-	c.Assert(err, Equals, nil)
+	c.Assert(err, IsNil)
 	c.Assert(result, Equals, uint32(1)) // We are Primary Owner
 
 	// Set up a signal watch
@@ -82,7 +74,7 @@ func (s *S) TestConnectionWatchSignalWithBusName(c *C) {
 		Interface: "com.example.GoDbus",
 		Member: "TestSignal"},
 		func(msg *Message) { received <- msg })
-	c.Assert(err, Equals, nil)
+	c.Assert(err, IsNil)
 	defer watch.Cancel()
 
 	// Send the signal, and wait to receive it.
@@ -92,7 +84,7 @@ func (s *S) TestConnectionWatchSignalWithBusName(c *C) {
 	}
 
 	signal2 := <- received
-	c.Check(signal2, Not(Equals), nil)
+	c.Check(signal2, NotNil)
 }
 
 func (s *S) TestSignalWatchSetAdd(c *C) {
