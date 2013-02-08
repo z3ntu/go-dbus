@@ -298,22 +298,8 @@ func (p *Connection) UnregisterObjectPath(path ObjectPath) {
 	delete(p.objectPathHandlers, path)
 }
 
-func (p *Connection) _GetIntrospect(dest string, path ObjectPath) Introspect {
-	msg := NewMethodCallMessage(dest, path, "org.freedesktop.DBus.Introspectable", "Introspect")
-
-	reply, err := p.SendWithReply(msg)
-	if err != nil {
-		return nil
-	}
-	if v, ok := reply.GetAllArgs()[0].(string); ok {
-		if intro, err := NewIntrospect(v); err == nil {
-			return intro
-		}
-	}
-	return nil
-}
-
-// Retrieve a specified object.
+// Object returns a proxy for the object identified by the given
+// destination address and path
 func (p *Connection) Object(dest string, path ObjectPath) *ObjectProxy {
 	return &ObjectProxy{p, dest, path}
 }
