@@ -131,7 +131,7 @@ func Connect(busType StandardBus) (*Connection, error) {
 	bus.signalMatchRules = make(signalWatchSet)
 	bus.nameInfo = make(map[string] *nameInfo)
 
-	go bus._RunLoop()
+	go bus.receiveLoop()
 	if bus.UniqueName, err = bus.busProxy.Hello(); err != nil {
 		bus.Close()
 		return nil, err
@@ -145,7 +145,7 @@ func (p *Connection) Authenticate() error {
 	return nil
 }
 
-func (p *Connection) _MessageReceiver(msgChan chan<- *Message) {
+func (p *Connection) receiveLoop() {
 	for {
 		msg, err := readMessage(p.conn)
 		if err != nil {
@@ -154,26 +154,20 @@ func (p *Connection) _MessageReceiver(msgChan chan<- *Message) {
 			}
 			break
 		}
-		msgChan <- msg
-	}
-	close(msgChan)
-}
-
-func (p *Connection) _RunLoop() {
-	msgChan := make(chan *Message)
-	go p._MessageReceiver(msgChan)
-	for msg := range msgChan {
-		p._MessageDispatch(msg)
+		if err = p.dispatchMessage(msg); err != nil {
+			log.Println("Error dispatching message:", err)
+			break
+		}
 	}
 }
 
-func (p *Connection) _MessageDispatch(msg *Message) {
+func (p *Connection) dispatchMessage(msg *Message) error {
 	// Run the message through the registered filters, stopping
 	// processing if a filter returns nil.
 	for _, filter := range p.messageFilters {
 		msg := filter.filter(msg)
 		if msg == nil {
-			return
+			return nil
 		}
 	}
 
@@ -182,15 +176,20 @@ func (p *Connection) _MessageDispatch(msg *Message) {
 		switch {
 		case msg.Iface == "org.freedesktop.DBus.Peer" && msg.Member == "Ping":
 			reply := NewMethodReturnMessage(msg)
-			_ = p.Send(reply)
+			if err := p.Send(reply); err != nil {
+				return err
+			}
 		case msg.Iface == "org.freedesktop.DBus.Peer" && msg.Member == "GetMachineId":
 			// Should be returning the UUID found in /var/lib/dbus/machine-id
 			fmt.Println("XXX: handle GetMachineId")
 			reply := NewMethodReturnMessage(msg)
-			_ = reply.AppendArgs("machine-id")
-			_ = p.Send(reply)
+			if err := reply.AppendArgs("machine-id"); err != nil {
+				return err
+			}
+			if err := p.Send(reply); err != nil {
+				return err
+			}
 		default:
-			// XXX: need to lock the map
 			p.handlerMutex.Lock()
 			handler, ok := p.objectPathHandlers[msg.Path]
 			p.handlerMutex.Unlock()
@@ -198,7 +197,9 @@ func (p *Connection) _MessageDispatch(msg *Message) {
 				handler <- msg
 			} else {
 				reply := NewErrorMessage(msg, "org.freedesktop.DBus.Error.UnknownObject", "Unknown object path " + string(msg.Path))
-				_ = p.Send(reply)
+				if err := p.Send(reply); err != nil {
+					return err
+				}
 			}
 		}
 	case TypeMethodReturn, TypeError:
@@ -220,6 +221,7 @@ func (p *Connection) _MessageDispatch(msg *Message) {
 			watch.handler(msg)
 		}
 	}
+	return nil
 }
 
 func (p *Connection) Close() error {
