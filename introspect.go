@@ -1,3 +1,9 @@
+// +build ignore
+//
+// XXX: The method call logic no longer needs introspection data, so
+// this code is currently unused.  I've kept it around since it may be
+// useful stub generation.
+
 package dbus
 
 import (
