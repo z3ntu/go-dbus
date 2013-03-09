@@ -8,8 +8,8 @@ import (
 	"encoding/hex"
 	"errors"
 	"io"
-	"os"
 	"net"
+	"os"
 	"strconv"
 )
 
@@ -138,7 +138,7 @@ func authenticate(conn net.Conn, authenticators []authenticator) error {
 	success := false
 	for _, auth := range authenticators {
 		reply, err := send([]byte("AUTH"), auth.Mechanism(), auth.InitialResponse())
-		StatementLoop:
+	StatementLoop:
 		for {
 			if err != nil {
 				return err

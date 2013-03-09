@@ -9,8 +9,8 @@ import (
 
 type encoder struct {
 	signature Signature
-	data bytes.Buffer
-	order binary.ByteOrder
+	data      bytes.Buffer
+	order     binary.ByteOrder
 }
 
 func newEncoder(signature Signature, data []byte, order binary.ByteOrder) *encoder {
@@ -22,7 +22,7 @@ func newEncoder(signature Signature, data []byte, order binary.ByteOrder) *encod
 }
 
 func (self *encoder) align(alignment int) {
-	for self.data.Len() % alignment != 0 {
+	for self.data.Len()%alignment != 0 {
 		self.data.WriteByte(0)
 	}
 }
@@ -203,5 +203,3 @@ func (self *encoder) appendValue(v reflect.Value) error {
 	}
 	return errors.New("Could not marshal " + v.Type().String())
 }
-
-

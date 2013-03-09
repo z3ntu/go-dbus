@@ -23,11 +23,11 @@ func (s *S) TestConnectionWatchSignal(c *C) {
 		defer bus2.Close()
 		msgChan := make(chan *Message)
 		watch, err := bus2.WatchSignal(&MatchRule{
-			Type: TypeSignal,
-			Sender: sender,
-			Path: "/go/dbus/test",
+			Type:      TypeSignal,
+			Sender:    sender,
+			Path:      "/go/dbus/test",
 			Interface: "com.example.GoDbus",
-			Member: "TestSignal"},
+			Member:    "TestSignal"},
 			func(msg *Message) { msgChan <- msg })
 		watchReady <- 0
 		if err != nil {
@@ -52,7 +52,7 @@ func (s *S) TestConnectionWatchSignal(c *C) {
 		c.Fatal(err)
 	}
 
-	signal2 := <- complete
+	signal2 := <-complete
 	c.Check(signal2, NotNil)
 }
 
@@ -69,10 +69,10 @@ func (s *S) TestConnectionWatchSignalWithBusName(c *C) {
 	// Set up a signal watch
 	received := make(chan *Message, 1)
 	watch, err := bus.WatchSignal(&MatchRule{
-		Type: TypeSignal,
-		Sender: "com.example.GoDbus",
+		Type:      TypeSignal,
+		Sender:    "com.example.GoDbus",
 		Interface: "com.example.GoDbus",
-		Member: "TestSignal"},
+		Member:    "TestSignal"},
 		func(msg *Message) { received <- msg })
 	c.Assert(err, IsNil)
 	defer watch.Cancel()
@@ -83,18 +83,18 @@ func (s *S) TestConnectionWatchSignalWithBusName(c *C) {
 		c.Fatal(err)
 	}
 
-	signal2 := <- received
+	signal2 := <-received
 	c.Check(signal2, NotNil)
 }
 
 func (s *S) TestSignalWatchSetAdd(c *C) {
 	set := make(signalWatchSet)
 	watch := SignalWatch{rule: MatchRule{
-		Type: TypeSignal,
-		Sender: ":1.42",
-		Path: "/foo",
+		Type:      TypeSignal,
+		Sender:    ":1.42",
+		Path:      "/foo",
 		Interface: "com.example.Foo",
-		Member: "Bar"}}
+		Member:    "Bar"}}
 	set.Add(&watch)
 
 	byInterface, ok := set["/foo"]
@@ -109,18 +109,18 @@ func (s *S) TestSignalWatchSetAdd(c *C) {
 func (s *S) TestSignalWatchSetRemove(c *C) {
 	set := make(signalWatchSet)
 	watch1 := SignalWatch{rule: MatchRule{
-		Type: TypeSignal,
-		Sender: ":1.42",
-		Path: "/foo",
+		Type:      TypeSignal,
+		Sender:    ":1.42",
+		Path:      "/foo",
 		Interface: "com.example.Foo",
-		Member: "Bar"}}
+		Member:    "Bar"}}
 	set.Add(&watch1)
 	watch2 := SignalWatch{rule: MatchRule{
-		Type: TypeSignal,
-		Sender: ":1.43",
-		Path: "/foo",
+		Type:      TypeSignal,
+		Sender:    ":1.43",
+		Path:      "/foo",
 		Interface: "com.example.Foo",
-		Member: "Bar"}}
+		Member:    "Bar"}}
 	set.Add(&watch2)
 
 	c.Check(set.Remove(&watch1), Equals, true)
@@ -136,11 +136,11 @@ func (s *S) TestSignalWatchSetFindMatches(c *C) {
 
 	set := make(signalWatchSet)
 	watch := SignalWatch{rule: MatchRule{
-		Type: TypeSignal,
-		Sender: ":1.42",
-		Path: "/foo",
+		Type:      TypeSignal,
+		Sender:    ":1.42",
+		Path:      "/foo",
 		Interface: "com.example.Foo",
-		Member: "Bar"}}
+		Member:    "Bar"}}
 
 	set.Add(&watch)
 	c.Check(set.FindMatches(msg), DeepEquals, []*SignalWatch{&watch})

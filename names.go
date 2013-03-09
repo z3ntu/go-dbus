@@ -21,7 +21,7 @@ type NameWatch struct {
 
 func newNameInfo(bus *Connection, busName string) (*nameInfo, error) {
 	info := &nameInfo{
-		bus: bus,
+		bus:     bus,
 		busName: busName,
 		watches: []*NameWatch{}}
 	handler := func(msg *Message) {
@@ -33,12 +33,12 @@ func newNameInfo(bus *Connection, busName string) (*nameInfo, error) {
 		info.handleOwnerChange(newOwner)
 	}
 	watch, err := bus.WatchSignal(&MatchRule{
-		Type: TypeSignal,
-		Sender: BUS_DAEMON_NAME,
-		Path: BUS_DAEMON_PATH,
+		Type:      TypeSignal,
+		Sender:    BUS_DAEMON_NAME,
+		Path:      BUS_DAEMON_PATH,
 		Interface: BUS_DAEMON_IFACE,
-		Member: "NameOwnerChanged",
-		Arg0: busName}, handler)
+		Member:    "NameOwnerChanged",
+		Arg0:      busName}, handler)
 	if err != nil {
 		return nil, err
 	}
@@ -106,7 +106,7 @@ func (watch *NameWatch) Cancel() error {
 	defer bus.nameInfoMutex.Unlock()
 
 	found := false
-	for i, other := range(info.watches) {
+	for i, other := range info.watches {
 		if other == watch {
 			info.watches[i] = info.watches[len(info.watches)-1]
 			info.watches = info.watches[:len(info.watches)-1]
@@ -126,16 +126,15 @@ func (watch *NameWatch) Cancel() error {
 	return info.signalWatch.Cancel()
 }
 
-
 type BusName struct {
-	bus *Connection
-	Name string
+	bus   *Connection
+	Name  string
 	Flags NameFlags
 
-	cancelled bool
+	cancelled    bool
 	needsRelease bool
 
-	acquiredCallback func (*BusName)
+	acquiredCallback func(*BusName)
 	lostCallback     func(*BusName)
 
 	acquiredWatch *SignalWatch
@@ -146,17 +145,17 @@ type NameFlags uint32
 
 const (
 	NameFlagAllowReplacement = NameFlags(0x1)
-	NameFlagReplaceExisting = NameFlags(0x2)
-	NameFlagDoNotQueue = NameFlags(0x4)
+	NameFlagReplaceExisting  = NameFlags(0x2)
+	NameFlagDoNotQueue       = NameFlags(0x4)
 )
 
 func (p *Connection) RequestName(busName string, flags NameFlags, nameAcquired func(*BusName), nameLost func(*BusName)) *BusName {
 	name := &BusName{
-		bus: p,
-		Name: busName,
-		Flags: flags,
+		bus:              p,
+		Name:             busName,
+		Flags:            flags,
 		acquiredCallback: nameAcquired,
-		lostCallback: nameLost}
+		lostCallback:     nameLost}
 	go name.request()
 	return name
 }
@@ -202,12 +201,12 @@ func (name *BusName) request() {
 
 	if subscribe && !name.cancelled {
 		watch, err := name.bus.WatchSignal(&MatchRule{
-			Type: TypeSignal,
-			Sender: BUS_DAEMON_NAME,
-			Path: BUS_DAEMON_PATH,
+			Type:      TypeSignal,
+			Sender:    BUS_DAEMON_NAME,
+			Path:      BUS_DAEMON_PATH,
 			Interface: BUS_DAEMON_IFACE,
-			Member: "NameLost",
-			Arg0: name.Name},
+			Member:    "NameLost",
+			Arg0:      name.Name},
 			func(msg *Message) {
 				if !name.cancelled && name.lostCallback != nil {
 					name.lostCallback(name)
@@ -221,12 +220,12 @@ func (name *BusName) request() {
 		name.lostWatch = watch
 
 		watch, err = name.bus.WatchSignal(&MatchRule{
-			Type: TypeSignal,
-			Sender: BUS_DAEMON_NAME,
-			Path: BUS_DAEMON_PATH,
+			Type:      TypeSignal,
+			Sender:    BUS_DAEMON_NAME,
+			Path:      BUS_DAEMON_PATH,
 			Interface: BUS_DAEMON_IFACE,
-			Member: "NameAcquired",
-			Arg0: name.Name},
+			Member:    "NameAcquired",
+			Arg0:      name.Name},
 			func(msg *Message) {
 				if !name.cancelled && name.acquiredCallback != nil {
 					name.acquiredCallback(name)

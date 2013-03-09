@@ -38,7 +38,7 @@ func (s *S) TestIntrospect(c *C) {
 	c.Assert(intro, Not(Equals), nil)
 
 	intf := intro.GetInterfaceData("org.freedesktop.SampleInterface")
-	c.Assert(intf,  Not(Equals), nil)
+	c.Assert(intf, Not(Equals), nil)
 	c.Check(intf.GetName(), Equals, "org.freedesktop.SampleInterface")
 
 	meth := intf.GetMethodData("Frobate")

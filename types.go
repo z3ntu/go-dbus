@@ -7,12 +7,11 @@ import (
 )
 
 var (
-	typeHasObjectPath = reflect.TypeOf((*HasObjectPath)(nil)).Elem()
-	typeVariant = reflect.TypeOf(Variant{})
-	typeSignature = reflect.TypeOf(Signature(""))
+	typeHasObjectPath  = reflect.TypeOf((*HasObjectPath)(nil)).Elem()
+	typeVariant        = reflect.TypeOf(Variant{})
+	typeSignature      = reflect.TypeOf(Signature(""))
 	typeBlankInterface = reflect.TypeOf((*interface{})(nil)).Elem()
 )
-
 
 type Signature string
 
@@ -142,7 +141,6 @@ func (sig Signature) Validate() (err error) {
 	return
 }
 
-
 type ObjectPath string
 
 type HasObjectPath interface {
@@ -161,9 +159,8 @@ func (v *Variant) GetVariantSignature() (Signature, error) {
 	return SignatureOf(reflect.TypeOf(v.Value))
 }
 
-
 type Error struct {
-	Name string
+	Name    string
 	Message string
 }
 

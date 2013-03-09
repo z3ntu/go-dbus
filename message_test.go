@@ -1,16 +1,16 @@
 package dbus
 
 import (
-	. "launchpad.net/gocheck"
-	"io"
 	"bytes"
+	"io"
+	. "launchpad.net/gocheck"
 )
 
 var testMessage = []byte{
-	'l', // Byte order
-	1,   // Message type
-	0,   // Flags
-	1,   // Protocol
+	'l',        // Byte order
+	1,          // Message type
+	0,          // Flags
+	1,          // Protocol
 	8, 0, 0, 0, // Body length
 	1, 0, 0, 0, // Serial
 	127, 0, 0, 0, // Header fields array length
@@ -32,7 +32,6 @@ var testMessage = []byte{
 	// Message body
 	3, 0, 0, 0,
 	'x', 'y', 'z', 0}
-
 
 func (s *S) TestReadMessage(c *C) {
 	r := bytes.NewReader(testMessage)
@@ -82,7 +81,7 @@ func (s *S) TestWriteMessage(c *C) {
 	c.Check(buff.Bytes(), DeepEquals, testMessage)
 }
 
-func (s* S) TestNewMethodCallMessage(c *C) {
+func (s *S) TestNewMethodCallMessage(c *C) {
 	msg := NewMethodCallMessage("com.destination", "/path", "com.interface", "method")
 	c.Check(msg.Type, Equals, TypeMethodCall)
 	c.Check(msg.Dest, Equals, "com.destination")

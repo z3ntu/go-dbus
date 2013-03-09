@@ -9,15 +9,16 @@ import (
 
 type decoder struct {
 	signature Signature
-	data []byte
-	order binary.ByteOrder
+	data      []byte
+	order     binary.ByteOrder
 
 	dataOffset, sigOffset int
 }
 
 var (
-	bufferOverrunError = errors.New("Buffer too small")
-	signatureOverrunError = errors.New("Signature too small"))
+	bufferOverrunError    = errors.New("Buffer too small")
+	signatureOverrunError = errors.New("Signature too small")
+)
 
 func newDecoder(signature Signature, data []byte, order binary.ByteOrder) *decoder {
 	return &decoder{signature: signature, data: data, order: order}
@@ -55,7 +56,7 @@ func (self *decoder) Remainder() []byte {
 }
 
 func (self *decoder) readByte() (byte, error) {
-	if len(self.data) < self.dataOffset + 1 {
+	if len(self.data) < self.dataOffset+1 {
 		return 0, bufferOverrunError
 	}
 	value := self.data[self.dataOffset]
@@ -65,7 +66,7 @@ func (self *decoder) readByte() (byte, error) {
 
 func (self *decoder) readInt16() (int16, error) {
 	self.align(2)
-	if len(self.data) < self.dataOffset + 2 {
+	if len(self.data) < self.dataOffset+2 {
 		return 0, bufferOverrunError
 	}
 	value := int16(self.order.Uint16(self.data[self.dataOffset:]))
@@ -75,7 +76,7 @@ func (self *decoder) readInt16() (int16, error) {
 
 func (self *decoder) readUint16() (uint16, error) {
 	self.align(2)
-	if len(self.data) < self.dataOffset + 2 {
+	if len(self.data) < self.dataOffset+2 {
 		return 0, bufferOverrunError
 	}
 	value := self.order.Uint16(self.data[self.dataOffset:])
@@ -85,7 +86,7 @@ func (self *decoder) readUint16() (uint16, error) {
 
 func (self *decoder) readInt32() (int32, error) {
 	self.align(4)
-	if len(self.data) < self.dataOffset + 4 {
+	if len(self.data) < self.dataOffset+4 {
 		return 0, bufferOverrunError
 	}
 	value := int32(self.order.Uint32(self.data[self.dataOffset:]))
@@ -95,7 +96,7 @@ func (self *decoder) readInt32() (int32, error) {
 
 func (self *decoder) readUint32() (uint32, error) {
 	self.align(4)
-	if len(self.data) < self.dataOffset + 4 {
+	if len(self.data) < self.dataOffset+4 {
 		return 0, bufferOverrunError
 	}
 	value := self.order.Uint32(self.data[self.dataOffset:])
@@ -105,17 +106,17 @@ func (self *decoder) readUint32() (uint32, error) {
 
 func (self *decoder) readInt64() (int64, error) {
 	self.align(8)
-	if len(self.data) < self.dataOffset + 8 {
+	if len(self.data) < self.dataOffset+8 {
 		return 0, bufferOverrunError
 	}
-		value := int64(self.order.Uint64(self.data[self.dataOffset:]))
+	value := int64(self.order.Uint64(self.data[self.dataOffset:]))
 	self.dataOffset += 8
 	return value, nil
 }
 
 func (self *decoder) readUint64() (uint64, error) {
 	self.align(8)
-	if len(self.data) < self.dataOffset + 8 {
+	if len(self.data) < self.dataOffset+8 {
 		return 0, bufferOverrunError
 	}
 	value := self.order.Uint64(self.data[self.dataOffset:])
@@ -134,10 +135,10 @@ func (self *decoder) readString() (string, error) {
 		return "", err
 	}
 	// One extra byte for null termination
-	if len(self.data) < self.dataOffset + int(length) + 1 {
+	if len(self.data) < self.dataOffset+int(length)+1 {
 		return "", bufferOverrunError
 	}
-	value := string(self.data[self.dataOffset:self.dataOffset + int(length)])
+	value := string(self.data[self.dataOffset : self.dataOffset+int(length)])
 	self.dataOffset += int(length) + 1
 	return value, nil
 }
@@ -148,10 +149,10 @@ func (self *decoder) readSignature() (Signature, error) {
 		return "", err
 	}
 	// One extra byte for null termination
-	if len(self.data) < self.dataOffset + int(length) + 1 {
+	if len(self.data) < self.dataOffset+int(length)+1 {
 		return "", bufferOverrunError
 	}
-	value := Signature(self.data[self.dataOffset:self.dataOffset + int(length)])
+	value := Signature(self.data[self.dataOffset : self.dataOffset+int(length)])
 	self.dataOffset += int(length) + 1
 	return value, nil
 }
@@ -463,11 +464,11 @@ func (self *decoder) decodeValue(v reflect.Value) error {
 			}
 			// Decode the variant value through a sub-decoder.
 			variantDec := decoder{
-				signature: signature,
-				data: self.data,
-				order: self.order,
+				signature:  signature,
+				data:       self.data,
+				order:      self.order,
 				dataOffset: self.dataOffset,
-				sigOffset: 0}
+				sigOffset:  0}
 			if err := variantDec.decodeValue(reflect.ValueOf(&variant.Value).Elem()); err != nil {
 				return err
 			}

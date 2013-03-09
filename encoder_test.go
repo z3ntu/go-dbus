@@ -106,9 +106,9 @@ func (s *S) TestEncoderAppendString(c *C) {
 	}
 	c.Check(enc.signature, Equals, Signature("s"))
 	c.Check(enc.data.Bytes(), DeepEquals, []byte{
-		5, 0, 0, 0,              // Length
+		5, 0, 0, 0, // Length
 		'h', 'e', 'l', 'l', 'o', // "hello"
-		0})                      // nul termination
+		0}) // nul termination
 }
 
 func (s *S) TestEncoderAppendObjectPath(c *C) {
@@ -118,12 +118,13 @@ func (s *S) TestEncoderAppendObjectPath(c *C) {
 	}
 	c.Check(enc.signature, Equals, Signature("o"))
 	c.Check(enc.data.Bytes(), DeepEquals, []byte{
-		4, 0, 0, 0,         // Length
+		4, 0, 0, 0, // Length
 		'/', 'f', 'o', 'o', // ObjectPath("/foo")
-		0})                 // nul termination
+		0}) // nul termination
 }
 
-type testObject struct {}
+type testObject struct{}
+
 func (f *testObject) GetObjectPath() ObjectPath {
 	return ObjectPath("/foo")
 }
@@ -135,9 +136,9 @@ func (s *S) TestEncoderAppendObject(c *C) {
 	}
 	c.Check(enc.signature, Equals, Signature("o"))
 	c.Check(enc.data.Bytes(), DeepEquals, []byte{
-		4, 0, 0, 0,         // Length
+		4, 0, 0, 0, // Length
 		'/', 'f', 'o', 'o', // ObjectPath("/foo")
-		0})                 // nul termination
+		0}) // nul termination
 }
 
 func (s *S) TestEncoderAppendSignature(c *C) {
@@ -149,7 +150,7 @@ func (s *S) TestEncoderAppendSignature(c *C) {
 	c.Check(enc.data.Bytes(), DeepEquals, []byte{
 		5,                       // Length
 		'a', '{', 's', 'i', '}', // Signature("a{si}")
-		0})                      // nul termination
+		0}) // nul termination
 }
 
 func (s *S) TestEncoderAppendArray(c *C) {
@@ -159,8 +160,8 @@ func (s *S) TestEncoderAppendArray(c *C) {
 	}
 	c.Check(enc.signature, Equals, Signature("ai"))
 	c.Check(enc.data.Bytes(), DeepEquals, []byte{
-		8, 0, 0, 0,    // Length
-		42, 0, 0, 0,   // int32(42)
+		8, 0, 0, 0, // Length
+		42, 0, 0, 0, // int32(42)
 		164, 1, 0, 0}) // int32(420)
 }
 
@@ -172,9 +173,9 @@ func (s *S) TestEncoderAppendArrayLengthAlignment(c *C) {
 	c.Check(enc.Append([]uint32{42}), Equals, nil)
 	c.Check(enc.signature, Equals, Signature("yau"))
 	c.Check(enc.data.Bytes(), DeepEquals, []byte{
-		1,            // byte(1)
-		0, 0, 0,      // padding
-		4, 0, 0, 0,   // array length
+		1,       // byte(1)
+		0, 0, 0, // padding
+		4, 0, 0, 0, // array length
 		42, 0, 0, 0}) // uint32(42)
 }
 
@@ -184,8 +185,8 @@ func (s *S) TestEncoderAppendArrayPaddingAfterLength(c *C) {
 	c.Check(enc.Append([]int64{42}), Equals, nil)
 	c.Check(enc.signature, Equals, Signature("ax"))
 	c.Check(enc.data.Bytes(), DeepEquals, []byte{
-		8, 0, 0, 0,   // array length (not including padding)
-                0, 0, 0, 0,   // padding
+		8, 0, 0, 0, // array length (not including padding)
+		0, 0, 0, 0, // padding
 		42, 0, 0, 0, 0, 0, 0, 0}) // int64(42)
 
 	// The padding is needed, even if there are no elements in the array.
@@ -193,8 +194,8 @@ func (s *S) TestEncoderAppendArrayPaddingAfterLength(c *C) {
 	c.Check(enc.Append([]int64{}), Equals, nil)
 	c.Check(enc.signature, Equals, Signature("ax"))
 	c.Check(enc.data.Bytes(), DeepEquals, []byte{
-		0, 0, 0, 0,   // array length (not including padding)
-                0, 0, 0, 0})  // padding
+		0, 0, 0, 0, // array length (not including padding)
+		0, 0, 0, 0}) // padding
 }
 
 func (s *S) TestEncoderAppendMap(c *C) {
@@ -204,11 +205,11 @@ func (s *S) TestEncoderAppendMap(c *C) {
 	}
 	c.Check(enc.signature, Equals, Signature("a{sb}"))
 	c.Check(enc.data.Bytes(), DeepEquals, []byte{
-		16, 0, 0, 0,                       // array content length
-		0, 0, 0, 0,                        // padding to 8 bytes
+		16, 0, 0, 0, // array content length
+		0, 0, 0, 0, // padding to 8 bytes
 		4, 0, 0, 0, 't', 'r', 'u', 'e', 0, // "true"
-		0, 0, 0,                           // padding to 4 bytes
-		1, 0, 0, 0})                       // true
+		0, 0, 0, // padding to 4 bytes
+		1, 0, 0, 0}) // true
 }
 
 func (s *S) TestEncoderAppendMapAlignment(c *C) {
@@ -219,12 +220,12 @@ func (s *S) TestEncoderAppendMapAlignment(c *C) {
 	c.Check(enc.Append(map[string]bool{"true": true}), Equals, nil)
 	c.Check(enc.signature, Equals, Signature("ya{sb}"))
 	c.Check(enc.data.Bytes(), DeepEquals, []byte{
-		1,                                 // byte(1)
-		0, 0, 0,                           // padding
-		16, 0, 0, 0,                       // array content length
+		1,       // byte(1)
+		0, 0, 0, // padding
+		16, 0, 0, 0, // array content length
 		4, 0, 0, 0, 't', 'r', 'u', 'e', 0, // "true"
-		0, 0, 0,                           // padding to 4 bytes
-		1, 0, 0, 0})                       // true
+		0, 0, 0, // padding to 4 bytes
+		1, 0, 0, 0}) // true
 }
 
 func (s *S) TestEncoderAppendStruct(c *C) {
@@ -239,7 +240,7 @@ func (s *S) TestEncoderAppendStruct(c *C) {
 	c.Check(enc.signature, Equals, Signature("(is)"))
 	c.Check(enc.data.Bytes(), DeepEquals, []byte{
 		42, 0, 0, 0,
-		5, 0, 0, 0, 'h', 'e' , 'l', 'l', 'o', 0})
+		5, 0, 0, 0, 'h', 'e', 'l', 'l', 'o', 0})
 }
 
 func (s *S) TestEncoderAppendVariant(c *C) {
@@ -249,7 +250,7 @@ func (s *S) TestEncoderAppendVariant(c *C) {
 	}
 	c.Check(enc.signature, Equals, Signature("v"))
 	c.Check(enc.data.Bytes(), DeepEquals, []byte{
-		1, 'i', 0,    // Signature("i")
+		1, 'i', 0, // Signature("i")
 		0,            // padding to 4 bytes
 		42, 0, 0, 0}) // int32(42)
 }
@@ -261,11 +262,11 @@ func (s *S) TestEncoderAppendAlignment(c *C) {
 	}
 	c.Check(enc.signature, Equals, Signature("ynbix"))
 	c.Check(enc.data.Bytes(), DeepEquals, []byte{
-		42,                       // byte(42)
-		0,                        // padding to 2 bytes
-		42, 0,                    // int16(42)
-		1, 0, 0, 0,               // true
-		42, 0, 0, 0,              // int32(42)
-		0, 0, 0, 0,               // padding to 8 bytes
+		42,    // byte(42)
+		0,     // padding to 2 bytes
+		42, 0, // int16(42)
+		1, 0, 0, 0, // true
+		42, 0, 0, 0, // int32(42)
+		0, 0, 0, 0, // padding to 8 bytes
 		42, 0, 0, 0, 0, 0, 0, 0}) // int64(42)
 }

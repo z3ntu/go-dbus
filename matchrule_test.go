@@ -12,9 +12,9 @@ func (s *S) TestMatchRuleToString(c *C) {
 
 	// A rule that doesn't match the member
 	mr = MatchRule{
-		Type: TypeSignal,
+		Type:      TypeSignal,
 		Interface: "com.example.Foo",
-		Member: "Bar"}
+		Member:    "Bar"}
 	c.Check(mr.String(), Equals, "type='signal',interface='com.example.Foo',member='Bar'")
 }
 
@@ -23,23 +23,23 @@ func (s *S) TestMatchRuleMatch(c *C) {
 	_ = msg.AppendArgs("com.example.Foo", "", ":2.0")
 
 	mr := MatchRule{
-		Type: TypeSignal,
+		Type:      TypeSignal,
 		Interface: "org.freedesktop.DBus",
-		Member: "NameOwnerChanged"}
+		Member:    "NameOwnerChanged"}
 	c.Check(mr.Match(msg), Equals, true)
 
 	mr = MatchRule{
-		Type: TypeSignal,
+		Type:      TypeSignal,
 		Interface: "org.freedesktop.DBus",
-		Member: "NameAcquired"}
+		Member:    "NameAcquired"}
 	c.Check(mr.Match(msg), Equals, false)
 
 	// Check matching against first argument.
 	mr = MatchRule{
-		Type: TypeSignal,
+		Type:      TypeSignal,
 		Interface: "org.freedesktop.DBus",
-		Member: "NameOwnerChanged",
-		Arg0: "com.example.Foo"}
+		Member:    "NameOwnerChanged",
+		Arg0:      "com.example.Foo"}
 	c.Check(mr.Match(msg), Equals, true)
 	mr.Arg0 = "com.example.Bar"
 	c.Check(mr.Match(msg), Equals, false)

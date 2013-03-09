@@ -1,16 +1,16 @@
 package dbus
 
 import (
-	. "launchpad.net/gocheck"
 	"fmt"
+	. "launchpad.net/gocheck"
 )
 
 type callTest struct {
-	dest string
-	path ObjectPath
+	dest          string
+	path          ObjectPath
 	iface, method string
-	args                      []interface{}
-	validate                  func(*Message) error
+	args          []interface{}
+	validate      func(*Message) error
 }
 
 var callTests = []callTest{

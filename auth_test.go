@@ -2,8 +2,8 @@ package dbus
 
 import (
 	"bufio"
-	"net"
 	. "launchpad.net/gocheck"
+	"net"
 )
 
 func (s *S) TestAuthenticate(c *C) {
@@ -28,7 +28,7 @@ func (s *S) TestAuthenticate(c *C) {
 	}()
 
 	c.Check(authenticate(client, nil), Equals, nil)
-	<- complete
+	<-complete
 	c.Check(clientWrites[0], Equals, "\x00")
 	c.Check(clientWrites[1][:13], Equals, "AUTH EXTERNAL")
 	c.Check(clientWrites[2], Equals, "BEGIN")

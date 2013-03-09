@@ -122,10 +122,10 @@ func (s *S) TestDecoderDecodeFloat64(c *C) {
 
 func (s *S) TestDecoderDecodeString(c *C) {
 	dec := newDecoder("ss", []byte{
-		5, 0, 0, 0,                  // len("hello")
-		'h', 'e', 'l', 'l', 'o', 0,  // "hello"
-		0, 0,                        // padding
-		5, 0, 0, 0,                  // len("world")
+		5, 0, 0, 0, // len("hello")
+		'h', 'e', 'l', 'l', 'o', 0, // "hello"
+		0, 0, // padding
+		5, 0, 0, 0, // len("world")
 		'w', 'o', 'r', 'l', 'd', 0}, // "world"
 		binary.LittleEndian)
 	var value1 string
@@ -141,10 +141,10 @@ func (s *S) TestDecoderDecodeString(c *C) {
 
 func (s *S) TestDecoderDecodeObjectPath(c *C) {
 	dec := newDecoder("oo", []byte{
-		4, 0, 0, 0,             // len("/foo")
-		'/', 'f', 'o', 'o', 0,  // ObjectPath("/foo")
-		0, 0, 0,                // padding
-		4, 0, 0, 0,             // len("/bar")
+		4, 0, 0, 0, // len("/foo")
+		'/', 'f', 'o', 'o', 0, // ObjectPath("/foo")
+		0, 0, 0, // padding
+		4, 0, 0, 0, // len("/bar")
 		'/', 'b', 'a', 'r', 0}, // ObjectPath("/bar")
 		binary.LittleEndian)
 	var value1 ObjectPath
@@ -162,8 +162,8 @@ func (s *S) TestDecoderDecodeSignature(c *C) {
 	dec := newDecoder("gg", []byte{
 		8,                                         // len("a{s(iv)}")
 		'a', '{', 's', '(', 'i', 'v', ')', '}', 0, // Signature("a{s(iv)}")
-		4,                                         // len("asvi")
-		'a', 's', 'v', 'i', 0},                    // Signature("asvi")
+		4,                      // len("asvi")
+		'a', 's', 'v', 'i', 0}, // Signature("asvi")
 		binary.LittleEndian)
 	var value1 Signature
 	var value2 interface{}
@@ -178,8 +178,8 @@ func (s *S) TestDecoderDecodeSignature(c *C) {
 
 func (s *S) TestDecoderDecodeArray(c *C) {
 	dec := newDecoder("ai", []byte{
-		8, 0, 0, 0,    // array length
-		42, 0, 0, 0,   // int32(42)
+		8, 0, 0, 0, // array length
+		42, 0, 0, 0, // int32(42)
 		100, 0, 0, 0}, // int32(100)
 		binary.LittleEndian)
 	// Decode as an array
@@ -224,9 +224,9 @@ func (s *S) TestDecoderDecodeEmptyArray(c *C) {
 
 func (s *S) TestDecoderDecodeArrayPaddingAfterLength(c *C) {
 	dec := newDecoder("ax", []byte{
-		8, 0, 0, 0,               // array length
-                0, 0, 0, 0,               // padding
-                42, 0, 0, 0, 0, 0, 0, 0}, // uint64(42)
+		8, 0, 0, 0, // array length
+		0, 0, 0, 0, // padding
+		42, 0, 0, 0, 0, 0, 0, 0}, // uint64(42)
 		binary.LittleEndian)
 	var value []int64
 	c.Check(dec.Decode(&value), Equals, nil)
@@ -236,8 +236,8 @@ func (s *S) TestDecoderDecodeArrayPaddingAfterLength(c *C) {
 
 	// This padding exists even for empty arays
 	dec = newDecoder("ax", []byte{
-		0, 0, 0, 0,  // array length
-                0, 0, 0, 0}, // padding
+		0, 0, 0, 0, // array length
+		0, 0, 0, 0}, // padding
 		binary.LittleEndian)
 	c.Check(dec.Decode(&value), Equals, nil)
 	c.Check(dec.dataOffset, Equals, 8)
@@ -247,16 +247,16 @@ func (s *S) TestDecoderDecodeArrayPaddingAfterLength(c *C) {
 
 func (s *S) TestDecoderDecodeMap(c *C) {
 	dec := newDecoder("a{si}", []byte{
-		36, 0, 0, 0,      // array length
-		0, 0, 0, 0,       // padding
-                3, 0, 0, 0,       // len("one")
-                'o', 'n', 'e', 0, // "one"
-                1, 0, 0, 0,       // int32(1)
-                0, 0, 0, 0,       // padding
-                9, 0, 0, 0,       // len("forty two")
-                'f', 'o', 'r', 't', 'y', ' ', 't', 'w', 'o', 0,
-                0, 0,             // padding
-		42, 0, 0, 0},     // int32(42)
+		36, 0, 0, 0, // array length
+		0, 0, 0, 0, // padding
+		3, 0, 0, 0, // len("one")
+		'o', 'n', 'e', 0, // "one"
+		1, 0, 0, 0, // int32(1)
+		0, 0, 0, 0, // padding
+		9, 0, 0, 0, // len("forty two")
+		'f', 'o', 'r', 't', 'y', ' ', 't', 'w', 'o', 0,
+		0, 0, // padding
+		42, 0, 0, 0}, // int32(42)
 		binary.LittleEndian)
 	var value map[string]int32
 	c.Check(dec.Decode(&value), Equals, nil)
@@ -267,10 +267,10 @@ func (s *S) TestDecoderDecodeMap(c *C) {
 
 func (s *S) TestDecoderDecodeStruct(c *C) {
 	dec := newDecoder("(si)", []byte{
-		5, 0, 0, 0,                 // len("hello")
-                'h', 'e', 'l', 'l', 'o', 0, // "hello"
-		0, 0,                       // padding
-                42, 0, 0, 0},               // int32(42)
+		5, 0, 0, 0, // len("hello")
+		'h', 'e', 'l', 'l', 'o', 0, // "hello"
+		0, 0, // padding
+		42, 0, 0, 0}, // int32(42)
 		binary.LittleEndian)
 
 	type Dummy struct {
@@ -307,10 +307,10 @@ func (s *S) TestDecoderDecodeStruct(c *C) {
 
 func (s *S) TestDecoderDecodeVariant(c *C) {
 	dec := newDecoder("v", []byte{
-		1,            // len("i")
-		'i', 0,       // Signature("i")
+		1,      // len("i")
+		'i', 0, // Signature("i")
 		0,            // padding
-                42, 0, 0, 0}, // int32(42)
+		42, 0, 0, 0}, // int32(42)
 		binary.LittleEndian)
 
 	var value1 Variant

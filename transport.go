@@ -8,7 +8,6 @@ import (
 	"strings"
 )
 
-
 type transport interface {
 	Dial() (net.Conn, error)
 }
@@ -20,7 +19,7 @@ func newTransport(address string) (transport, error) {
 	// Split the address into transport type and options.
 	transportType := address[:strings.Index(address, ":")]
 	options := make(map[string]string)
-	for _, option := range strings.Split(address[len(transportType) + 1:], ",") {
+	for _, option := range strings.Split(address[len(transportType)+1:], ",") {
 		pair := strings.SplitN(option, "=", 2)
 		key, err := url.QueryUnescape(pair[0])
 		if err != nil {

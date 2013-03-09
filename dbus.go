@@ -34,28 +34,28 @@ type MessageFilter struct {
 // Connection represents a connection to a message bus.
 type Connection struct {
 	// The unique name of this connection on the message bus.
-	UniqueName         string
-	conn               net.Conn
-	busProxy           BusDaemon
-	lastSerial         uint32
+	UniqueName string
+	conn       net.Conn
+	busProxy   BusDaemon
+	lastSerial uint32
 
 	handlerMutex       sync.Mutex // covers the next three
 	messageFilters     []*MessageFilter
-	methodCallReplies  map[uint32] chan<- *Message
-	objectPathHandlers map[ObjectPath] chan<- *Message
+	methodCallReplies  map[uint32]chan<- *Message
+	objectPathHandlers map[ObjectPath]chan<- *Message
 	signalMatchRules   signalWatchSet
 
-	nameInfoMutex     sync.Mutex
-	nameInfo          map[string] *nameInfo
+	nameInfoMutex sync.Mutex
+	nameInfo      map[string]*nameInfo
 }
 
 // ObjectProxy represents a remote object on the bus.  It can be used
 // to simplify constructing method calls, and acts as a basis for
 // D-Bus interface client stubs.
 type ObjectProxy struct {
-	bus *Connection
+	bus         *Connection
 	destination string
-	path ObjectPath
+	path        ObjectPath
 }
 
 func (o *ObjectProxy) GetObjectPath() ObjectPath {
@@ -86,11 +86,11 @@ func (o *ObjectProxy) Call(iface, method string, args ...interface{}) (*Message,
 
 func (o *ObjectProxy) WatchSignal(iface, member string, handler func(*Message)) (*SignalWatch, error) {
 	return o.bus.WatchSignal(&MatchRule{
-		Type: TypeSignal,
-		Sender: o.destination,
-		Path: o.path,
+		Type:      TypeSignal,
+		Sender:    o.destination,
+		Path:      o.path,
 		Interface: iface,
-		Member: member}, handler)
+		Member:    member}, handler)
 }
 
 // Connect returns a connection to the message bus identified by busType.
@@ -126,10 +126,10 @@ func Connect(busType StandardBus) (*Connection, error) {
 
 	bus.busProxy = BusDaemon{bus.Object(BUS_DAEMON_NAME, BUS_DAEMON_PATH)}
 	bus.messageFilters = []*MessageFilter{}
-	bus.methodCallReplies = make(map[uint32] chan<- *Message)
-	bus.objectPathHandlers = make(map[ObjectPath] chan<- *Message)
+	bus.methodCallReplies = make(map[uint32]chan<- *Message)
+	bus.objectPathHandlers = make(map[ObjectPath]chan<- *Message)
 	bus.signalMatchRules = make(signalWatchSet)
-	bus.nameInfo = make(map[string] *nameInfo)
+	bus.nameInfo = make(map[string]*nameInfo)
 
 	go bus.receiveLoop()
 	if bus.UniqueName, err = bus.busProxy.Hello(); err != nil {
@@ -196,7 +196,7 @@ func (p *Connection) dispatchMessage(msg *Message) error {
 			if ok {
 				handler <- msg
 			} else {
-				reply := NewErrorMessage(msg, "org.freedesktop.DBus.Error.UnknownObject", "Unknown object path " + string(msg.Path))
+				reply := NewErrorMessage(msg, "org.freedesktop.DBus.Error.UnknownObject", "Unknown object path "+string(msg.Path))
 				if err := p.Send(reply); err != nil {
 					return err
 				}
@@ -264,7 +264,7 @@ func (p *Connection) SendWithReply(msg *Message) (*Message, error) {
 	return reply, nil
 }
 
-func (p *Connection) RegisterMessageFilter(filter func (*Message) *Message) *MessageFilter {
+func (p *Connection) RegisterMessageFilter(filter func(*Message) *Message) *MessageFilter {
 	msgFilter := &MessageFilter{filter}
 	p.messageFilters = append(p.messageFilters, msgFilter)
 	return msgFilter

@@ -5,9 +5,9 @@ import (
 	"errors"
 	"fmt"
 	"io/ioutil"
+	. "launchpad.net/gocheck"
 	"net"
 	"path"
-	. "launchpad.net/gocheck"
 )
 
 func (s *S) TestNewTransportUnix(c *C) {
@@ -45,7 +45,7 @@ func (s *S) TestUnixTransportDial(c *C) {
 	c.Assert(err, IsNil)
 	conn.Close()
 	// Was the other end of the connection established correctly?
-	err = <- errChan
+	err = <-errChan
 	c.Check(err, IsNil)
 	listener.Close()
 }
@@ -95,7 +95,7 @@ func (s *S) TestTcpTransportDial(c *C) {
 	c.Assert(err, IsNil)
 	conn.Close()
 	// Was the other end of the connection established correctly?
-	err = <- errChan
+	err = <-errChan
 	c.Check(err, IsNil)
 	listener.Close()
 }
@@ -148,7 +148,7 @@ func (s *S) TestNonceTcpTransportDial(c *C) {
 	c.Assert(err, IsNil)
 	conn.Close()
 	// Was the other end of the connection established correctly?
-	err = <- errChan
+	err = <-errChan
 	c.Check(err, IsNil)
 	listener.Close()
 }

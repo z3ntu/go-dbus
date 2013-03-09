@@ -18,17 +18,17 @@ type SignalWatch struct {
 
 // A structure to store the set of signal watches, keyed by object
 // path, interface and member.
-type signalWatchSet map[ObjectPath] map[string] map[string] []*SignalWatch
+type signalWatchSet map[ObjectPath]map[string]map[string][]*SignalWatch
 
 func (self signalWatchSet) Add(watch *SignalWatch) {
 	byInterface, ok := self[watch.rule.Path]
 	if !ok {
-		byInterface = make(map[string] map[string] []*SignalWatch)
+		byInterface = make(map[string]map[string][]*SignalWatch)
 		self[watch.rule.Path] = byInterface
 	}
 	byMember, ok := byInterface[watch.rule.Interface]
 	if !ok {
-		byMember = make(map[string] []*SignalWatch)
+		byMember = make(map[string][]*SignalWatch)
 		byInterface[watch.rule.Interface] = byMember
 	}
 	watches, ok := byMember[watch.rule.Member]
@@ -115,14 +115,14 @@ func (p *Connection) WatchSignal(rule *MatchRule, handler func(*Message)) (*Sign
 		if rule.Sender[0] == ':' {
 			// For unique names, cancel the signal watch
 			// when the name is lost.
-			nameHandler = func (newOwner string) {
+			nameHandler = func(newOwner string) {
 				if newOwner == "" {
 					watch.Cancel()
 				}
 			}
 		} else {
 			// Otherwise, update the sender owner.
-			nameHandler = func (newOwner string) {
+			nameHandler = func(newOwner string) {
 				watch.rule.senderNameOwner = newOwner
 			}
 		}

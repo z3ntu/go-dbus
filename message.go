@@ -36,12 +36,12 @@ const (
 )
 
 type Message struct {
-	order       binary.ByteOrder
-	Type        MessageType
-	Flags       MessageFlag
-	Protocol    uint8
-	bodyLength  int
-	serial      uint32
+	order      binary.ByteOrder
+	Type       MessageType
+	Flags      MessageFlag
+	Protocol   uint8
+	bodyLength int
+	serial     uint32
 	// header fields
 	Path        ObjectPath
 	Iface       string
@@ -168,7 +168,7 @@ func (p *Message) AsError() error {
 }
 
 type headerField struct {
-	Code byte
+	Code  byte
 	Value Variant
 }
 
@@ -194,7 +194,7 @@ func readMessage(r io.Reader) (*Message, error) {
 	var msgOrder byte
 	var msgBodyLength, headerFieldsLength uint32
 	if err := dec.Decode(&msgOrder, &msg.Type, &msg.Flags, &msg.Protocol, &msgBodyLength, &msg.serial, &headerFieldsLength); err != nil {
-		return nil,  err
+		return nil, err
 	}
 
 	// Read out and decode the header fields, plus the padding to
@@ -203,9 +203,9 @@ func readMessage(r io.Reader) (*Message, error) {
 	if padding < 0 {
 		padding += 8
 	}
-	headerFields := make([]byte, 16 + int(headerFieldsLength) + padding)
+	headerFields := make([]byte, 16+int(headerFieldsLength)+padding)
 	copy(headerFields[:16], header)
-	if n, err := r.Read(headerFields[16:]); n < len(headerFields) - 16 {
+	if n, err := r.Read(headerFields[16:]); n < len(headerFields)-16 {
 		if err == nil {
 			err = errors.New("Could not read message header fields")
 		}
@@ -215,7 +215,7 @@ func readMessage(r io.Reader) (*Message, error) {
 	dec.dataOffset += 12
 	fields := make([]headerField, 0, 10)
 	if err := dec.Decode(&fields); err != nil {
-		return nil,  err
+		return nil, err
 	}
 	for _, field := range fields {
 		switch field.Code {
