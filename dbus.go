@@ -17,7 +17,7 @@ import (
 type StandardBus int
 
 const (
-	SessionBus = StandardBus(iota)
+	SessionBus StandardBus = iota
 	SystemBus
 )
 

@@ -144,9 +144,9 @@ type BusName struct {
 type NameFlags uint32
 
 const (
-	NameFlagAllowReplacement = NameFlags(0x1)
-	NameFlagReplaceExisting  = NameFlags(0x2)
-	NameFlagDoNotQueue       = NameFlags(0x4)
+	NameFlagAllowReplacement NameFlags = 1 << iota
+	NameFlagReplaceExisting
+	NameFlagDoNotQueue
 )
 
 func (p *Connection) RequestName(busName string, flags NameFlags, nameAcquired func(*BusName), nameLost func(*BusName)) *BusName {
