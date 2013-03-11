@@ -31,17 +31,30 @@ func (t MessageType) String() string { return messageTypeString[t] }
 type MessageFlag uint8
 
 const (
+	// When applied to method call messages, indicates that no
+	// method return or error message is expected.
 	FlagNoReplyExpected MessageFlag = 1 << iota
+	// Indicates that the message should not autostart the service
+	// if the destination service is not currently running.
 	FlagNoAutoStart
 )
 
+// Message represents a D-Bus message.
+//
+// It is used to both construct messages for sending on the bus, and
+// to represent messages received from the bus.
+//
+// There type does not use locks to protect its internal members.
+// Instead, it is expected that users either (a) only modify a message
+// from a single thread (usually the case when constructing a message
+// to send), or (b) treat the message as read only (usually the case
+// when processing a received message).
 type Message struct {
-	order      binary.ByteOrder
-	Type       MessageType
-	Flags      MessageFlag
-	Protocol   uint8
-	bodyLength int
-	serial     uint32
+	order    binary.ByteOrder
+	Type     MessageType
+	Flags    MessageFlag
+	Protocol uint8
+	serial   uint32
 	// header fields
 	Path        ObjectPath
 	Iface       string
@@ -69,6 +82,9 @@ func newMessage() *Message {
 	return msg
 }
 
+// NewMethodCallMessage creates a method call message.
+//
+// Method arguments can be appended to the message via AppendArgs.
 func NewMethodCallMessage(destination string, path ObjectPath, iface string, member string) *Message {
 	msg := newMessage()
 	msg.Type = TypeMethodCall
@@ -79,6 +95,12 @@ func NewMethodCallMessage(destination string, path ObjectPath, iface string, mem
 	return msg
 }
 
+// NewMethodReturnMessage creates a method return message.
+//
+// This message type represents a successful reply to the method call
+// message passed as an argument.
+//
+// Return arguments should be appended to the message via AppendArgs.
 func NewMethodReturnMessage(methodCall *Message) *Message {
 	if methodCall.serial == 0 {
 		panic("methodCall.serial == 0")
@@ -93,6 +115,12 @@ func NewMethodReturnMessage(methodCall *Message) *Message {
 	return msg
 }
 
+// NewSignalMessage creates a signal message.
+//
+// Signal messages are used to broadcast messages to interested
+// listeners.
+//
+// Arguments can be appended to the signal with AppendArgs.
 func NewSignalMessage(path ObjectPath, iface string, member string) *Message {
 	msg := newMessage()
 	msg.Type = TypeSignal
@@ -102,6 +130,10 @@ func NewSignalMessage(path ObjectPath, iface string, member string) *Message {
 	return msg
 }
 
+// NewErrorMessage creates an error message.
+//
+// This message type should be sent in response to a method call
+// message in the case of a failure.
 func NewErrorMessage(methodCall *Message, errorName string, message string) *Message {
 	if methodCall.serial == 0 {
 		panic("methodCall.serial == 0")
@@ -127,6 +159,25 @@ func (p *Message) setSerial(serial uint32) {
 	p.serial = serial
 }
 
+// AppendArgs appends arguments to a message.
+//
+// Native Go types are converted to equivalent D-Bus types:
+//  - uint8 represents a byte.
+//  - bool represents a boolean value.
+//  - int16, uint16, int32, uint32, int64 and uint64 represent the
+//    equivalent integer types.
+//  - string represents a string.
+//  - The dbus.ObjectPath type or any type conforming to the
+//    dbus.ObjectPather interface represents an object path.
+//  - arrays and slices represent arrays of the element type.
+//  - maps represent equivalent D-Bus dictionaries.
+//  - structures represent a structure comprising the public members.
+//  - the dbus.Variant type represents a variant.
+//
+// If an argument can not be serialised in the message, an error is
+// returned.  When multiple arguments are being appended, it is
+// possible for some arguments to be successfully appended before the
+// error is generated.
 func (p *Message) AppendArgs(args ...interface{}) error {
 	enc := newEncoder(p.sig, p.body, p.order)
 	if err := enc.Append(args...); err != nil {
@@ -137,11 +188,26 @@ func (p *Message) AppendArgs(args ...interface{}) error {
 	return nil
 }
 
+// GetArgs decodes one or more arguments from the message.
+//
+// The arguments should be pointers to variables used to hold the
+// arguments.  If the type of the argument does not match the
+// corresponding argument in the message, then an error will be
+// raised.
+//
+// As a special case, arguments may be decoded into a blank interface
+// value.  This may result in a less useful decoded version though
+// (e.g. an "ai" message argument would be decoded as []interface{}
+// instead of []int32).
 func (p *Message) GetArgs(args ...interface{}) error {
 	dec := newDecoder(p.sig, p.body, p.order)
 	return dec.Decode(args...)
 }
 
+// GetAllArgs returns all arguments in the message.
+//
+// This method is equivalent to calling GetArgs and passing pointers
+// to blank interface values for each message argument.
 func (p *Message) GetAllArgs() []interface{} {
 	dec := newDecoder(p.sig, p.body, p.order)
 	args := make([]interface{}, 0)
@@ -155,6 +221,9 @@ func (p *Message) GetAllArgs() []interface{} {
 	return args
 }
 
+// AsError creates a Go error value corresponding to a message.
+//
+// This method should only be called on messages of the error type.
 func (p *Message) AsError() error {
 	if p.Type != TypeError {
 		panic("Only messages of type 'error' can be converted to an error")
@@ -248,6 +317,7 @@ func readMessage(r io.Reader) (*Message, error) {
 	return msg, nil
 }
 
+// WriteTo serialises the message and writes it to the given writer.
 func (p *Message) WriteTo(w io.Writer) (int64, error) {
 	fields := make([]headerField, 0, 10)
 	if p.Path != "" {
