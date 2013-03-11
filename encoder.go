@@ -37,9 +37,9 @@ func (self *encoder) Append(args ...interface{}) error {
 }
 
 func (self *encoder) alignForType(t reflect.Type) error {
-	// If type matches the HasObjectPath interface, treat like an
+	// If type matches the ObjectPather interface, treat like an
 	// ObjectPath
-	if t.AssignableTo(typeHasObjectPath) {
+	if t.AssignableTo(typeObjectPather) {
 		t = reflect.TypeOf(ObjectPath(""))
 	}
 	// dereference pointers
@@ -81,9 +81,9 @@ func (self *encoder) appendValue(v reflect.Value) error {
 	}
 	self.signature += signature
 
-	// Convert HasObjectPath values to ObjectPath strings
-	if v.Type().AssignableTo(typeHasObjectPath) {
-		path := v.Interface().(HasObjectPath).GetObjectPath()
+	// Convert ObjectPather values to ObjectPath strings
+	if v.Type().AssignableTo(typeObjectPather) {
+		path := v.Interface().(ObjectPather).ObjectPath()
 		v = reflect.ValueOf(path)
 	}
 

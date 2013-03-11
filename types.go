@@ -7,7 +7,7 @@ import (
 )
 
 var (
-	typeHasObjectPath  = reflect.TypeOf((*HasObjectPath)(nil)).Elem()
+	typeObjectPather   = reflect.TypeOf((*ObjectPather)(nil)).Elem()
 	typeVariant        = reflect.TypeOf(Variant{})
 	typeSignature      = reflect.TypeOf(Signature(""))
 	typeBlankInterface = reflect.TypeOf((*interface{})(nil)).Elem()
@@ -16,7 +16,7 @@ var (
 type Signature string
 
 func SignatureOf(t reflect.Type) (Signature, error) {
-	if t.AssignableTo(typeHasObjectPath) {
+	if t.AssignableTo(typeObjectPather) {
 		return Signature("o"), nil
 	}
 	switch t.Kind() {
@@ -143,11 +143,11 @@ func (sig Signature) Validate() (err error) {
 
 type ObjectPath string
 
-type HasObjectPath interface {
-	GetObjectPath() ObjectPath
+type ObjectPather interface {
+	ObjectPath() ObjectPath
 }
 
-func (o ObjectPath) GetObjectPath() ObjectPath {
+func (o ObjectPath) ObjectPath() ObjectPath {
 	return o
 }
 

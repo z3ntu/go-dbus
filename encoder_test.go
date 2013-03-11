@@ -125,7 +125,7 @@ func (s *S) TestEncoderAppendObjectPath(c *C) {
 
 type testObject struct{}
 
-func (f *testObject) GetObjectPath() ObjectPath {
+func (f *testObject) ObjectPath() ObjectPath {
 	return ObjectPath("/foo")
 }
 

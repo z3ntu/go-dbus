@@ -58,7 +58,7 @@ type ObjectProxy struct {
 	path        ObjectPath
 }
 
-func (o *ObjectProxy) GetObjectPath() ObjectPath {
+func (o *ObjectProxy) ObjectPath() ObjectPath {
 	return o.path
 }
 
