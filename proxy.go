@@ -11,7 +11,7 @@ func (o *Introspectable) Introspect() (data string, err error) {
 	if err != nil {
 		return
 	}
-	err = reply.GetArgs(&data)
+	err = reply.Args(&data)
 	return
 }
 
@@ -25,7 +25,7 @@ func (o *Properties) Get(interfaceName string, propertyName string) (value inter
 		return
 	}
 	var variant Variant
-	err = reply.GetArgs(&variant)
+	err = reply.Args(&variant)
 	value = variant.Value
 	return
 }
@@ -40,7 +40,7 @@ func (o *Properties) GetAll(interfaceName string) (props map[string]Variant, err
 	if err != nil {
 		return
 	}
-	err = reply.GetArgs(&props)
+	err = reply.Args(&props)
 	return
 }
 
@@ -53,7 +53,7 @@ func (o *BusDaemon) Hello() (uniqueName string, err error) {
 	if err != nil {
 		return
 	}
-	err = reply.GetArgs(&uniqueName)
+	err = reply.Args(&uniqueName)
 	return
 }
 
@@ -62,7 +62,7 @@ func (o *BusDaemon) RequestName(name string, flags uint32) (result uint32, err e
 	if err != nil {
 		return
 	}
-	err = reply.GetArgs(&result)
+	err = reply.Args(&result)
 	return
 }
 
@@ -71,7 +71,7 @@ func (o *BusDaemon) ReleaseName(name string) (result uint32, err error) {
 	if err != nil {
 		return
 	}
-	err = reply.GetArgs(&result)
+	err = reply.Args(&result)
 	return
 }
 
@@ -80,7 +80,7 @@ func (o *BusDaemon) ListQueuedOwners(name string) (owners []string, err error) {
 	if err != nil {
 		return
 	}
-	err = reply.GetArgs(&owners)
+	err = reply.Args(&owners)
 	return
 }
 
@@ -89,7 +89,7 @@ func (o *BusDaemon) ListNames() (names []string, err error) {
 	if err != nil {
 		return
 	}
-	err = reply.GetArgs(&names)
+	err = reply.Args(&names)
 	return
 }
 
@@ -98,7 +98,7 @@ func (o *BusDaemon) ListActivatableNames() (names []string, err error) {
 	if err != nil {
 		return
 	}
-	err = reply.GetArgs(&names)
+	err = reply.Args(&names)
 	return
 }
 
@@ -107,7 +107,7 @@ func (o *BusDaemon) NameHasOwner(name string) (hasOwner bool, err error) {
 	if err != nil {
 		return
 	}
-	err = reply.GetArgs(&hasOwner)
+	err = reply.Args(&hasOwner)
 	return
 }
 
@@ -116,7 +116,7 @@ func (o *BusDaemon) StartServiceByName(name string, flags uint32) (result uint32
 	if err != nil {
 		return
 	}
-	err = reply.GetArgs(&result)
+	err = reply.Args(&result)
 	return
 }
 
@@ -130,7 +130,7 @@ func (o *BusDaemon) GetNameOwner(name string) (owner string, err error) {
 	if err != nil {
 		return
 	}
-	err = reply.GetArgs(&owner)
+	err = reply.Args(&owner)
 	return
 }
 
@@ -139,7 +139,7 @@ func (o *BusDaemon) GetConnectionUnixUser(busName string) (user uint32, err erro
 	if err != nil {
 		return
 	}
-	err = reply.GetArgs(&user)
+	err = reply.Args(&user)
 	return
 }
 
@@ -148,7 +148,7 @@ func (o *BusDaemon) GetConnectionUnixProcessID(busName string) (process uint32, 
 	if err != nil {
 		return
 	}
-	err = reply.GetArgs(&process)
+	err = reply.Args(&process)
 	return
 }
 
@@ -167,6 +167,6 @@ func (o *BusDaemon) GetId() (busId string, err error) {
 	if err != nil {
 		return
 	}
-	err = reply.GetArgs(&busId)
+	err = reply.Args(&busId)
 	return
 }

@@ -60,7 +60,7 @@ func (p *MatchRule) Match(msg *Message) bool {
 	}
 	if p.Arg0 != "" {
 		var arg0 string
-		if err := msg.GetArgs(&arg0); err != nil || arg0 != p.Arg0 {
+		if err := msg.Args(&arg0); err != nil || arg0 != p.Arg0 {
 			return false
 		}
 	}

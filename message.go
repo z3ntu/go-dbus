@@ -188,7 +188,7 @@ func (p *Message) AppendArgs(args ...interface{}) error {
 	return nil
 }
 
-// GetArgs decodes one or more arguments from the message.
+// Args decodes one or more arguments from the message.
 //
 // The arguments should be pointers to variables used to hold the
 // arguments.  If the type of the argument does not match the
@@ -199,16 +199,16 @@ func (p *Message) AppendArgs(args ...interface{}) error {
 // value.  This may result in a less useful decoded version though
 // (e.g. an "ai" message argument would be decoded as []interface{}
 // instead of []int32).
-func (p *Message) GetArgs(args ...interface{}) error {
+func (p *Message) Args(args ...interface{}) error {
 	dec := newDecoder(p.sig, p.body, p.order)
 	return dec.Decode(args...)
 }
 
-// GetAllArgs returns all arguments in the message.
+// AllArgs returns all arguments in the message.
 //
-// This method is equivalent to calling GetArgs and passing pointers
+// This method is equivalent to calling Args and passing pointers
 // to blank interface values for each message argument.
-func (p *Message) GetAllArgs() []interface{} {
+func (p *Message) AllArgs() []interface{} {
 	dec := newDecoder(p.sig, p.body, p.order)
 	args := make([]interface{}, 0)
 	for dec.HasMore() {
@@ -229,7 +229,7 @@ func (p *Message) AsError() error {
 		panic("Only messages of type 'error' can be converted to an error")
 	}
 	var errorMessage string
-	if err := p.GetArgs(&errorMessage); err != nil {
+	if err := p.Args(&errorMessage); err != nil {
 		// Ignore error
 		errorMessage = ""
 	}

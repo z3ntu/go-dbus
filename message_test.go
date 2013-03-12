@@ -47,7 +47,7 @@ func (s *S) TestReadMessage(c *C) {
 	c.Check(msg.Member, Equals, "NameHasOwner")
 	c.Check(msg.sig, Equals, Signature("s"))
 	var arg string
-	if err := msg.GetArgs(&arg); err != nil {
+	if err := msg.Args(&arg); err != nil {
 		c.Error(err)
 	}
 	c.Check(arg, Equals, "xyz")
@@ -136,7 +136,7 @@ func (s *S) TestNewErrorMessage(c *C) {
 	// No signature or data
 	c.Check(reply.sig, Equals, Signature("s"))
 	var errorMessage string
-	if err := reply.GetArgs(&errorMessage); err != nil {
+	if err := reply.Args(&errorMessage); err != nil {
 		c.Error(err)
 	}
 	c.Check(errorMessage, Equals, "message")

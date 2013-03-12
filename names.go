@@ -26,7 +26,7 @@ func newNameInfo(bus *Connection, busName string) (*nameInfo, error) {
 		watches: []*NameWatch{}}
 	handler := func(msg *Message) {
 		var busName, oldOwner, newOwner string
-		if err := msg.GetArgs(&busName, &oldOwner, &newOwner); err != nil {
+		if err := msg.Args(&busName, &oldOwner, &newOwner); err != nil {
 			log.Println("Could not decode NameOwnerChanged message:", err)
 			return
 		}

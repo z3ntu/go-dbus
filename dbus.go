@@ -65,7 +65,7 @@ func (o *ObjectProxy) ObjectPath() ObjectPath {
 // Call the given method on the remote object.
 //
 // On success, the reply message will be returned, whose arguments can
-// be unpacked with its GetArgs() method.
+// be unpacked with its Args() method.
 //
 // On failure (both network failures and D-Bus level errors), an error
 // will be returned.

@@ -85,6 +85,6 @@ func (s *S) TestConnectionRegisterMessageFilter(c *C) {
 	c.Assert(err, IsNil)
 
 	var busId, extra string
-	c.Assert(reply.GetArgs(&busId, &extra), IsNil)
+	c.Assert(reply.Args(&busId, &extra), IsNil)
 	c.Assert(extra, Equals, "Added by filter")
 }
