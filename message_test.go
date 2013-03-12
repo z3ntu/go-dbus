@@ -43,7 +43,7 @@ func (s *S) TestReadMessage(c *C) {
 	c.Check(msg.Type, Equals, TypeMethodCall)
 	c.Check(msg.Path, Equals, ObjectPath("/org/freedesktop/DBus"))
 	c.Check(msg.Dest, Equals, "org.freedesktop.DBus")
-	c.Check(msg.Iface, Equals, "org.freedesktop.DBus")
+	c.Check(msg.Interface, Equals, "org.freedesktop.DBus")
 	c.Check(msg.Member, Equals, "NameHasOwner")
 	c.Check(msg.sig, Equals, Signature("s"))
 	var arg string
@@ -68,7 +68,7 @@ func (s *S) TestWriteMessage(c *C) {
 	msg.serial = 1
 	msg.Path = "/org/freedesktop/DBus"
 	msg.Dest = "org.freedesktop.DBus"
-	msg.Iface = "org.freedesktop.DBus"
+	msg.Interface = "org.freedesktop.DBus"
 	msg.Member = "NameHasOwner"
 	if err := msg.AppendArgs("xyz"); err != nil {
 		c.Error(err)
@@ -86,7 +86,7 @@ func (s *S) TestNewMethodCallMessage(c *C) {
 	c.Check(msg.Type, Equals, TypeMethodCall)
 	c.Check(msg.Dest, Equals, "com.destination")
 	c.Check(msg.Path, Equals, ObjectPath("/path"))
-	c.Check(msg.Iface, Equals, "com.interface")
+	c.Check(msg.Interface, Equals, "com.interface")
 	c.Check(msg.Member, Equals, "method")
 
 	// No signature or data
@@ -114,7 +114,7 @@ func (s *S) TestNewSignalMessage(c *C) {
 	c.Check(msg.Type, Equals, TypeSignal)
 	c.Check(msg.Dest, Equals, "")
 	c.Check(msg.Path, Equals, ObjectPath("/path"))
-	c.Check(msg.Iface, Equals, "com.interface")
+	c.Check(msg.Interface, Equals, "com.interface")
 	c.Check(msg.Member, Equals, "signal")
 
 	// No signature or data

@@ -52,7 +52,7 @@ func (p *MatchRule) Match(msg *Message) bool {
 	if p.Path != "" && p.Path != msg.Path {
 		return false
 	}
-	if p.Interface != "" && p.Interface != msg.Iface {
+	if p.Interface != "" && p.Interface != msg.Interface {
 		return false
 	}
 	if p.Member != "" && p.Member != msg.Member {

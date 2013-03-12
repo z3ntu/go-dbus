@@ -174,12 +174,12 @@ func (p *Connection) dispatchMessage(msg *Message) error {
 	switch msg.Type {
 	case TypeMethodCall:
 		switch {
-		case msg.Iface == "org.freedesktop.DBus.Peer" && msg.Member == "Ping":
+		case msg.Interface == "org.freedesktop.DBus.Peer" && msg.Member == "Ping":
 			reply := NewMethodReturnMessage(msg)
 			if err := p.Send(reply); err != nil {
 				return err
 			}
-		case msg.Iface == "org.freedesktop.DBus.Peer" && msg.Member == "GetMachineId":
+		case msg.Interface == "org.freedesktop.DBus.Peer" && msg.Member == "GetMachineId":
 			// Should be returning the UUID found in /var/lib/dbus/machine-id
 			fmt.Println("XXX: handle GetMachineId")
 			reply := NewMethodReturnMessage(msg)

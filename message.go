@@ -57,7 +57,7 @@ type Message struct {
 	serial   uint32
 	// header fields
 	Path        ObjectPath
-	Iface       string
+	Interface   string
 	Member      string
 	ErrorName   string
 	replySerial uint32
@@ -90,7 +90,7 @@ func NewMethodCallMessage(destination string, path ObjectPath, iface string, mem
 	msg.Type = TypeMethodCall
 	msg.Dest = destination
 	msg.Path = path
-	msg.Iface = iface
+	msg.Interface = iface
 	msg.Member = member
 	return msg
 }
@@ -125,7 +125,7 @@ func NewSignalMessage(path ObjectPath, iface string, member string) *Message {
 	msg := newMessage()
 	msg.Type = TypeSignal
 	msg.Path = path
-	msg.Iface = iface
+	msg.Interface = iface
 	msg.Member = member
 	return msg
 }
@@ -291,7 +291,7 @@ func readMessage(r io.Reader) (*Message, error) {
 		case 1:
 			msg.Path = field.Value.Value.(ObjectPath)
 		case 2:
-			msg.Iface = field.Value.Value.(string)
+			msg.Interface = field.Value.Value.(string)
 		case 3:
 			msg.Member = field.Value.Value.(string)
 		case 4:
@@ -323,8 +323,8 @@ func (p *Message) WriteTo(w io.Writer) (int64, error) {
 	if p.Path != "" {
 		fields = append(fields, headerField{1, Variant{p.Path}})
 	}
-	if p.Iface != "" {
-		fields = append(fields, headerField{2, Variant{p.Iface}})
+	if p.Interface != "" {
+		fields = append(fields, headerField{2, Variant{p.Interface}})
 	}
 	if p.Member != "" {
 		fields = append(fields, headerField{3, Variant{p.Member}})

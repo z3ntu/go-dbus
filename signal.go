@@ -69,8 +69,8 @@ func (self signalWatchSet) FindMatches(msg *Message) (matches []*SignalWatch) {
 		pathKeys = append(pathKeys, msg.Path)
 	}
 	ifaceKeys := []string{""}
-	if msg.Iface != "" {
-		ifaceKeys = append(ifaceKeys, msg.Iface)
+	if msg.Interface != "" {
+		ifaceKeys = append(ifaceKeys, msg.Interface)
 	}
 	memberKeys := []string{""}
 	if msg.Member != "" {
