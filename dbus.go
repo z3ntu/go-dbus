@@ -84,13 +84,13 @@ func (o *ObjectProxy) Call(iface, method string, args ...interface{}) (*Message,
 	return reply, nil
 }
 
-func (o *ObjectProxy) WatchSignal(iface, member string, handler func(*Message)) (*SignalWatch, error) {
+func (o *ObjectProxy) WatchSignal(iface, member string) (*SignalWatch, error) {
 	return o.bus.WatchSignal(&MatchRule{
 		Type:      TypeSignal,
 		Sender:    o.destination,
 		Path:      o.path,
 		Interface: iface,
-		Member:    member}, handler)
+		Member:    member})
 }
 
 // Connect returns a connection to the message bus identified by busType.
@@ -218,7 +218,7 @@ func (p *Connection) dispatchMessage(msg *Message) error {
 		watches := p.signalMatchRules.FindMatches(msg)
 		p.handlerMutex.Unlock()
 		for _, watch := range watches {
-			watch.handler(msg)
+			watch.C <- msg
 		}
 	}
 	return nil

@@ -21,14 +21,12 @@ func (s *S) TestConnectionWatchSignal(c *C) {
 			return
 		}
 		defer bus2.Close()
-		msgChan := make(chan *Message)
 		watch, err := bus2.WatchSignal(&MatchRule{
 			Type:      TypeSignal,
 			Sender:    sender,
 			Path:      "/go/dbus/test",
 			Interface: "com.example.GoDbus",
-			Member:    "TestSignal"},
-			func(msg *Message) { msgChan <- msg })
+			Member:    "TestSignal"})
 		watchReady <- 0
 		if err != nil {
 			c.Error(err)
@@ -36,7 +34,7 @@ func (s *S) TestConnectionWatchSignal(c *C) {
 			complete <- nil
 			return
 		}
-		msg := <-msgChan
+		msg := <-watch.C
 		if err := watch.Cancel(); err != nil {
 			c.Error(err)
 		}
@@ -72,10 +70,15 @@ func (s *S) TestConnectionWatchSignalWithBusName(c *C) {
 		Type:      TypeSignal,
 		Sender:    "com.example.GoDbus",
 		Interface: "com.example.GoDbus",
-		Member:    "TestSignal"},
-		func(msg *Message) { received <- msg })
+		Member:    "TestSignal"})
 	c.Assert(err, IsNil)
 	defer watch.Cancel()
+	// pump received signals messages into our bufferred channel
+	go func() {
+		for msg := range watch.C {
+			received <- msg
+		}
+	}()
 
 	// Send the signal, and wait to receive it.
 	signal := NewSignalMessage("/go/dbus/test", "com.example.GoDbus", "TestSignal")

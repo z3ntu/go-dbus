@@ -4,18 +4,6 @@ import (
 	"errors"
 )
 
-type SignalWatch struct {
-	bus     *Connection
-	rule    MatchRule
-	handler func(*Message)
-
-	// If the rule tries to match against a bus name as the
-	// sender, we need to track the current owner of that name.
-	nameWatch *NameWatch
-
-	cancelled bool
-}
-
 // A structure to store the set of signal watches, keyed by object
 // path, interface and member.
 type signalWatchSet map[ObjectPath]map[string]map[string][]*SignalWatch
@@ -102,12 +90,27 @@ func (self signalWatchSet) FindMatches(msg *Message) (matches []*SignalWatch) {
 	return
 }
 
+type SignalWatch struct {
+	bus     *Connection
+	rule    MatchRule
+	C       chan *Message
+
+	// If the rule tries to match against a bus name as the
+	// sender, we need to track the current owner of that name.
+	nameWatch *NameWatch
+
+	cancelled bool
+}
+
 // Handle received signals.
-func (p *Connection) WatchSignal(rule *MatchRule, handler func(*Message)) (*SignalWatch, error) {
+func (p *Connection) WatchSignal(rule *MatchRule) (*SignalWatch, error) {
 	if rule.Type != TypeSignal {
 		return nil, errors.New("Match rule is not for signals")
 	}
-	watch := &SignalWatch{bus: p, rule: *rule, handler: handler}
+	watch := &SignalWatch{
+		bus: p,
+		rule: *rule,
+		C: make(chan *Message)}
 
 	// Does the rule match a bus name other than the daemon?
 	if rule.Sender != "" && rule.Sender != BUS_DAEMON_NAME {
@@ -148,6 +151,7 @@ func (watch *SignalWatch) Cancel() error {
 		return nil
 	}
 	watch.cancelled = true
+	close(watch.C)
 	watch.bus.handlerMutex.Lock()
 	foundMatch := watch.bus.signalMatchRules.Remove(watch)
 	watch.bus.handlerMutex.Unlock()

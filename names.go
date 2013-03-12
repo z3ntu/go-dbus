@@ -24,24 +24,26 @@ func newNameInfo(bus *Connection, busName string) (*nameInfo, error) {
 		bus:     bus,
 		busName: busName,
 		watches: []*NameWatch{}}
-	handler := func(msg *Message) {
-		var busName, oldOwner, newOwner string
-		if err := msg.Args(&busName, &oldOwner, &newOwner); err != nil {
-			log.Println("Could not decode NameOwnerChanged message:", err)
-			return
-		}
-		info.handleOwnerChange(newOwner)
-	}
 	watch, err := bus.WatchSignal(&MatchRule{
 		Type:      TypeSignal,
 		Sender:    BUS_DAEMON_NAME,
 		Path:      BUS_DAEMON_PATH,
 		Interface: BUS_DAEMON_IFACE,
 		Member:    "NameOwnerChanged",
-		Arg0:      busName}, handler)
+		Arg0:      busName})
 	if err != nil {
 		return nil, err
 	}
+	go func() {
+		for msg := range watch.C {
+			var busName, oldOwner, newOwner string
+			if err := msg.Args(&busName, &oldOwner, &newOwner); err != nil {
+				log.Println("Could not decode NameOwnerChanged message:", err)
+				continue
+			}
+			info.handleOwnerChange(newOwner)
+		}
+	}()
 	info.signalWatch = watch
 
 	// spawn a goroutine to find the current name owner
@@ -206,18 +208,20 @@ func (name *BusName) request() {
 			Path:      BUS_DAEMON_PATH,
 			Interface: BUS_DAEMON_IFACE,
 			Member:    "NameLost",
-			Arg0:      name.Name},
-			func(msg *Message) {
-				if !name.cancelled && name.lostCallback != nil {
-					name.lostCallback(name)
-				}
-			})
+			Arg0:      name.Name})
 		if err != nil {
 			log.Println("Could not set up NameLost signal watch")
 			name.Release()
 			return
 		}
 		name.lostWatch = watch
+		go func() {
+			for _ = range name.lostWatch.C {
+				if !name.cancelled && name.lostCallback != nil {
+					name.lostCallback(name)
+				}
+			}
+		}()
 
 		watch, err = name.bus.WatchSignal(&MatchRule{
 			Type:      TypeSignal,
@@ -225,18 +229,20 @@ func (name *BusName) request() {
 			Path:      BUS_DAEMON_PATH,
 			Interface: BUS_DAEMON_IFACE,
 			Member:    "NameAcquired",
-			Arg0:      name.Name},
-			func(msg *Message) {
-				if !name.cancelled && name.acquiredCallback != nil {
-					name.acquiredCallback(name)
-				}
-			})
+			Arg0:      name.Name})
 		if err != nil {
 			log.Println("Could not set up NameLost signal watch")
 			name.Release()
 			return
 		}
 		name.acquiredWatch = watch
+		go func() {
+			for _ = range name.acquiredWatch.C {
+				if !name.cancelled && name.acquiredCallback != nil {
+					name.acquiredCallback(name)
+				}
+			}
+		}()
 
 		// XXX: if we disconnect from the bus, we should
 		// report the name being lost.
