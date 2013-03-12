@@ -15,7 +15,7 @@ type nameInfo struct {
 
 type NameWatch struct {
 	info      *nameInfo
-	handler   func(newOwner string)
+	C         chan string
 	cancelled bool
 }
 
@@ -67,31 +67,28 @@ func (self *nameInfo) checkCurrentOwner() {
 
 func (self *nameInfo) handleOwnerChange(newOwner string) {
 	for _, watch := range self.watches {
-		if watch.handler != nil {
-			watch.handler(newOwner)
-		}
+		watch.C <- newOwner
 	}
 	self.currentOwner = newOwner
 }
 
-func (p *Connection) WatchName(busName string, handler func(newOwner string)) (watch *NameWatch, err error) {
+func (p *Connection) WatchName(busName string) (watch *NameWatch, err error) {
 	p.nameInfoMutex.Lock()
+	defer p.nameInfoMutex.Unlock()
 	info, ok := p.nameInfo[busName]
 	if !ok {
 		if info, err = newNameInfo(p, busName); err != nil {
-			p.nameInfoMutex.Unlock()
 			return
 		}
 		p.nameInfo[busName] = info
 	}
-	watch = &NameWatch{info: info, handler: handler}
+	watch = &NameWatch{info: info, C: make(chan string, 1)}
 	info.watches = append(info.watches, watch)
-	p.nameInfoMutex.Unlock()
 
 	// If we're hooking up to an existing nameOwner and it already
 	// knows the current name owner, tell our callback.
 	if ok && info.currentOwner != "" {
-		handler(info.currentOwner)
+		watch.C <- info.currentOwner
 	}
 	return
 }
@@ -101,6 +98,7 @@ func (watch *NameWatch) Cancel() error {
 		return nil
 	}
 	watch.cancelled = true
+	close(watch.C)
 
 	info := watch.info
 	bus := info.bus

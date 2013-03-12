@@ -12,12 +12,15 @@ func (s *S) TestConnectionWatchName(c *C) {
 	// Set up the name watch
 	nameChanged := make(chan int, 1)
 	owners := []string{}
-	watch, err := bus.WatchName("com.example.GoDbus", func(newOwner string) {
-		owners = append(owners, newOwner)
-		nameChanged <- 0
-	})
+	watch, err := bus.WatchName("com.example.GoDbus")
 	c.Assert(err, IsNil)
 	defer watch.Cancel()
+	go func() {
+		for newOwner := range watch.C {
+			owners = append(owners, newOwner)
+			nameChanged <- 0
+		}
+	}()
 
 	// Our handler will be called once with the initial name owner
 	<-nameChanged

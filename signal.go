@@ -91,9 +91,9 @@ func (self signalWatchSet) FindMatches(msg *Message) (matches []*SignalWatch) {
 }
 
 type SignalWatch struct {
-	bus     *Connection
-	rule    MatchRule
-	C       chan *Message
+	bus  *Connection
+	rule MatchRule
+	C    chan *Message
 
 	// If the rule tries to match against a bus name as the
 	// sender, we need to track the current owner of that name.
@@ -108,32 +108,35 @@ func (p *Connection) WatchSignal(rule *MatchRule) (*SignalWatch, error) {
 		return nil, errors.New("Match rule is not for signals")
 	}
 	watch := &SignalWatch{
-		bus: p,
+		bus:  p,
 		rule: *rule,
-		C: make(chan *Message)}
+		C:    make(chan *Message)}
 
 	// Does the rule match a bus name other than the daemon?
 	if rule.Sender != "" && rule.Sender != BUS_DAEMON_NAME {
-		var nameHandler func(string)
-		if rule.Sender[0] == ':' {
-			// For unique names, cancel the signal watch
-			// when the name is lost.
-			nameHandler = func(newOwner string) {
-				if newOwner == "" {
-					watch.Cancel()
-				}
-			}
-		} else {
-			// Otherwise, update the sender owner.
-			nameHandler = func(newOwner string) {
-				watch.rule.senderNameOwner = newOwner
-			}
-		}
-		nameWatch, err := p.WatchName(rule.Sender, nameHandler)
+		nameWatch, err := p.WatchName(rule.Sender)
 		if err != nil {
 			return nil, err
 		}
 		watch.nameWatch = nameWatch
+		if rule.Sender[0] == ':' {
+			// For unique names, cancel the signal watch
+			// when the name is lost.
+			go func() {
+				for newOwner := range nameWatch.C {
+					if newOwner == "" {
+						watch.Cancel()
+					}
+				}
+			}()
+		} else {
+			// Otherwise, update the sender owner.
+			go func() {
+				for newOwner := range nameWatch.C {
+					watch.rule.senderNameOwner = newOwner
+				}
+			}()
+		}
 	}
 	if err := p.busProxy.AddMatch(rule.String()); err != nil {
 		watch.nameWatch.Cancel()
