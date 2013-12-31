@@ -126,6 +126,7 @@ func (watch *NameWatch) Cancel() error {
 	return info.signalWatch.Cancel()
 }
 
+// BusName acts as a handle for a well known bus name owned by this client.
 type BusName struct {
 	bus   *Connection
 	Name  string
@@ -149,6 +150,10 @@ const (
 	NameFlagDoNotQueue
 )
 
+// RequestName requests ownership of a well known bus name.
+//
+// When the name is acquired, the nameAcquired callback will fire.
+// When the name is lost, the nameLost callback will be fired.
 func (p *Connection) RequestName(busName string, flags NameFlags, nameAcquired func(*BusName), nameLost func(*BusName)) *BusName {
 	name := &BusName{
 		bus:              p,
@@ -247,6 +252,7 @@ func (name *BusName) request() {
 	}
 }
 
+// Release releases well known name on the message bus.
 func (name *BusName) Release() error {
 	if name.cancelled {
 		return nil
