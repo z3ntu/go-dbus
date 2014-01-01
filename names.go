@@ -131,12 +131,10 @@ type BusName struct {
 	bus   *Connection
 	Name  string
 	Flags NameFlags
+	C     chan error
 
 	cancelled    bool
 	needsRelease bool
-
-	acquiredCallback func(*BusName)
-	lostCallback     func(*BusName)
 
 	acquiredWatch *SignalWatch
 	lostWatch     *SignalWatch
@@ -150,17 +148,25 @@ const (
 	NameFlagDoNotQueue
 )
 
+var (
+	ErrNameLost         = errors.New("name ownership lost")
+	ErrNameInQueue      = errors.New("in queue for name ownership")
+	ErrNameExists       = errors.New("name exists")
+	ErrNameAlreadyOwned = errors.New("name already owned")
+)
+
 // RequestName requests ownership of a well known bus name.
 //
-// When the name is acquired, the nameAcquired callback will fire.
-// When the name is lost, the nameLost callback will be fired.
-func (p *Connection) RequestName(busName string, flags NameFlags, nameAcquired func(*BusName), nameLost func(*BusName)) *BusName {
+// Name ownership is communicated over the the BusName's channel: a
+// nil value indicates that the name was successfully acquired, and a
+// non-nil value indicates that the name was lost or could not be
+// acquired.
+func (p *Connection) RequestName(busName string, flags NameFlags) *BusName {
 	name := &BusName{
 		bus:              p,
 		Name:             busName,
 		Flags:            flags,
-		acquiredCallback: nameAcquired,
-		lostCallback:     nameLost}
+		C:                make(chan error, 1)}
 	go name.request()
 	return name
 }
@@ -178,30 +184,27 @@ func (name *BusName) request() {
 	switch result {
 	case 1:
 		// DBUS_REQUEST_NAME_REPLY_PRIMARY_OWNER
-		if name.acquiredCallback != nil {
-			name.acquiredCallback(name)
-		}
+		name.C <- nil
 		subscribe = true
 		name.needsRelease = true
 	case 2:
 		// DBUS_REQUEST_NAME_REPLY_IN_QUEUE
-		if name.lostCallback != nil {
-			name.lostCallback(name)
-		}
+		name.C <- ErrNameInQueue
 		subscribe = true
 		name.needsRelease = true
 	case 3:
 		// DBUS_REQUEST_NAME_REPLY_EXISTS
-		fallthrough
+		name.C <- ErrNameExists
+		name.Release()
 	case 4:
 		// DBUS_REQUEST_NAME_REPLY_ALREADY_OWNER
-		fallthrough
+		name.C <- ErrNameAlreadyOwned
+		name.Release()
 	default:
 		// assume that other responses mean we couldn't own
 		// the name
-		if name.lostCallback != nil {
-			name.lostCallback(name)
-		}
+		name.C <- errors.New("Unknown error")
+		name.Release()
 	}
 
 	if subscribe && !name.cancelled {
@@ -220,8 +223,10 @@ func (name *BusName) request() {
 		name.lostWatch = watch
 		go func() {
 			for _ = range name.lostWatch.C {
-				if !name.cancelled && name.lostCallback != nil {
-					name.lostCallback(name)
+				if !name.cancelled {
+					name.C <- ErrNameLost
+					close(name.C)
+					name.cancelled = true
 				}
 			}
 		}()
@@ -241,8 +246,8 @@ func (name *BusName) request() {
 		name.acquiredWatch = watch
 		go func() {
 			for _ = range name.acquiredWatch.C {
-				if !name.cancelled && name.acquiredCallback != nil {
-					name.acquiredCallback(name)
+				if !name.cancelled {
+					name.C <- nil
 				}
 			}
 		}()
@@ -258,6 +263,7 @@ func (name *BusName) Release() error {
 		return nil
 	}
 	name.cancelled = true
+	close(name.C)
 	if name.acquiredWatch != nil {
 		if err := name.acquiredWatch.Cancel(); err != nil {
 			return err
