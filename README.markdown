@@ -6,7 +6,7 @@ Look at the API on [GoPkgDoc](http://gopkgdoc.appspot.com/pkg/github.com/norisat
 Installation
 ============
 
-    go get launchpad.net/~jamesh/go-dbus/trunk
+    go get launchpad.net/go-dbus/v1
 
 Usage
 =====
@@ -21,7 +21,7 @@ An example
 //      https://wiki.ubuntu.com/NotifyOSD#org.freedesktop.Notifications.Notify
 package main
 
-import "launchpad.net/~jamesh/go-dbus/trunk"
+import "launchpad.net/go-dbus/v1"
 import "log"
 
 func main() {
@@ -33,9 +33,6 @@ func main() {
     // Connect to Session or System buses.
     if conn, err = dbus.Connect(dbus.SessionBus); err != nil {
         log.Fatal("Connection error:", err)
-    }
-    if err = conn.Authenticate(); err != nil {
-        log.Fatal("Authentication error:", err)
     }
 
     // Create an object proxy
