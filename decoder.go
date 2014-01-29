@@ -414,10 +414,10 @@ func (self *decoder) decodeValue(v reflect.Value) error {
 					// Reset signature offset to the array element.
 					self.sigOffset = elemSigOffset
 					var elem interface{}
-					array = append(array, elem)
 					if err := self.decodeValue(reflect.ValueOf(&elem).Elem()); err != nil {
 						return err
 					}
+					array = append(array, elem)
 				}
 				v.Set(reflect.ValueOf(array))
 				return nil

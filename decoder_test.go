@@ -354,7 +354,7 @@ func (s *S) TestDecoderDecodeVariantMap(c *C) {
 
 	var value1 Variant
 	if err := dec.Decode(&value1); err != nil {
-		c.Error("Decode as Variant:", err)
+		c.Fatal("Decode as Variant:", err)
 	}
 	moo, ok := value1.Value.(map[interface{}]interface{})
 	c.Assert(ok, Equals, true)
@@ -388,7 +388,7 @@ func (s *S) TestDecoderDecodeVariantMapStringInt(c *C) {
 
 	var value1 Variant
 	if err := dec.Decode(&value1); err != nil {
-		c.Error("Decode as Variant:", err)
+		c.Fatal("Decode as Variant:", err)
 	}
 	moo, ok := value1.Value.(map[interface{}]interface{})
 	c.Assert(ok, Equals, true)
@@ -408,7 +408,7 @@ func (s *S) TestDecoderDecodeVariantMapIntString(c *C) {
 		5,      // len("a{is}")
 		'a', '{', 'i', 's', '}', // Signature("a{is}")
 		0, 0,			 // padding
-		36, 0, 0, 0,		 // array length
+		34, 0, 0, 0,		 // array length
 		0, 0, 0, 0,	         // padding (maps are 8-aligned)
 		1, 0, 0, 0,		 // int32(1)
 		3, 0, 0, 0,		 // len("one")
@@ -417,12 +417,12 @@ func (s *S) TestDecoderDecodeVariantMapIntString(c *C) {
 		42, 0, 0, 0,		 // int32(42)
 		9, 0, 0, 0,		 // len("forty two")
 		'f', 'o', 'r', 't', 'y', ' ', 't', 'w', 'o', 0,
-	}, // padding
+		0, 0}, // padding
 		binary.LittleEndian)
 
 	var value1 Variant
 	if err := dec.Decode(&value1); err != nil {
-		c.Error("Decode as Variant:", err)
+		c.Fatal("Decode as Variant:", err)
 	}
 	moo, ok := value1.Value.(map[interface{}]interface{})
 	c.Assert(ok, Equals, true)
@@ -451,9 +451,9 @@ func (s *S) TestDecoderDecodeVariantMapIntStruct(c *C) {
 		binary.LittleEndian)
 	var value1 Variant
 	if err := dec.Decode(&value1); err != nil {
-		c.Error("Decode as Variant:", err)
+		c.Fatal("Decode as Variant:", err)
 	}
 
-	moo, ok := value1.Value.(map[interface{}]interface{})
+	_, ok := value1.Value.(map[interface{}]interface{})
 	c.Assert(ok, Equals, true)
 }
