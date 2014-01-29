@@ -391,20 +391,37 @@ func (self *decoder) decodeValue(v reflect.Value) error {
 			self.sigOffset = afterElemOffset
 			return nil
 		case typeBlankInterface.AssignableTo(v.Type()):
-			// XXX: Need to support maps here (i.e. next
-			// signature char is '{')
-			array := make([]interface{}, 0)
-			for self.dataOffset < arrayEnd {
-				// Reset signature offset to the array element.
-				self.sigOffset = elemSigOffset
-				var elem interface{}
-				if err := self.decodeValue(reflect.ValueOf(&elem).Elem()); err != nil {
-					return err
+			if self.signature[elemSigOffset] == '{' {
+				mapv := make(map[interface{}]interface{})
+				for self.dataOffset < arrayEnd {
+					self.align(8)
+					var key, value interface{}
+					self.sigOffset = elemSigOffset + 1
+					if err := self.decodeValue(reflect.ValueOf(&key).Elem()); err != nil {
+						return err
+					}
+					self.sigOffset = elemSigOffset + 2
+					if err := self.decodeValue(reflect.ValueOf(&value).Elem()); err != nil {
+						return err
+					}
+					mapv[key] = value
 				}
-				array = append(array, elem)
+				v.Set(reflect.ValueOf(mapv))
+				return nil
+			} else {
+				array := make([]interface{}, 0)
+				for self.dataOffset < arrayEnd {
+					// Reset signature offset to the array element.
+					self.sigOffset = elemSigOffset
+					var elem interface{}
+					array = append(array, elem)
+					if err := self.decodeValue(reflect.ValueOf(&elem).Elem()); err != nil {
+						return err
+					}
+				}
+				v.Set(reflect.ValueOf(array))
+				return nil
 			}
-			v.Set(reflect.ValueOf(array))
-			return nil
 		}
 	case '(':
 		self.align(8)
