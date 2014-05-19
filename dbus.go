@@ -10,6 +10,7 @@ import (
 	"log"
 	"net"
 	"os"
+	"strings"
 	"sync"
 	"sync/atomic"
 )
@@ -196,9 +197,17 @@ func (p *Connection) dispatchMessage(msg *Message) error {
 			if ok {
 				handler <- msg
 			} else {
-				reply := NewErrorMessage(msg, "org.freedesktop.DBus.Error.UnknownObject", "Unknown object path "+string(msg.Path))
-				if err := p.Send(reply); err != nil {
-					return err
+				globbed := msg.Path[:strings.LastIndex(string(msg.Path), "/")+1] + "*"
+				p.handlerMutex.Lock()
+				handler, ok = p.objectPathHandlers[globbed]
+				p.handlerMutex.Unlock()
+				if ok {
+					handler <- msg
+				} else {
+					reply := NewErrorMessage(msg, "org.freedesktop.DBus.Error.UnknownObject", "Unknown object path "+string(msg.Path))
+					if err := p.Send(reply); err != nil {
+						return err
+					}
 				}
 			}
 		}
