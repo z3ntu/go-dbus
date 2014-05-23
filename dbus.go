@@ -162,6 +162,26 @@ func (p *Connection) receiveLoop() {
 	}
 }
 
+func (p *Connection) getPathHandler(objpath ObjectPath) (chan<- *Message, bool) {
+	p.handlerMutex.Lock()
+	defer p.handlerMutex.Unlock()
+
+	path := string(objpath)
+	idx := strings.LastIndex(path, "/") + 1
+
+	for {
+		h, ok := p.objectPathHandlers[ObjectPath(path)]
+		if ok {
+			return h, true
+		}
+		if idx < 0 {
+			return nil, false
+		}
+		idx = strings.LastIndex(path[:idx], "/")
+		path = path[:idx+1] + "*"
+	}
+}
+
 func (p *Connection) dispatchMessage(msg *Message) error {
 	// Run the message through the registered filters, stopping
 	// processing if a filter returns nil.
@@ -191,23 +211,13 @@ func (p *Connection) dispatchMessage(msg *Message) error {
 				return err
 			}
 		default:
-			p.handlerMutex.Lock()
-			handler, ok := p.objectPathHandlers[msg.Path]
-			p.handlerMutex.Unlock()
+			handler, ok := p.getPathHandler(msg.Path)
 			if ok {
 				handler <- msg
 			} else {
-				globbed := msg.Path[:strings.LastIndex(string(msg.Path), "/")+1] + "*"
-				p.handlerMutex.Lock()
-				handler, ok = p.objectPathHandlers[globbed]
-				p.handlerMutex.Unlock()
-				if ok {
-					handler <- msg
-				} else {
-					reply := NewErrorMessage(msg, "org.freedesktop.DBus.Error.UnknownObject", "Unknown object path "+string(msg.Path))
-					if err := p.Send(reply); err != nil {
-						return err
-					}
+				reply := NewErrorMessage(msg, "org.freedesktop.DBus.Error.UnknownObject", "Unknown object path "+string(msg.Path))
+				if err := p.Send(reply); err != nil {
+					return err
 				}
 			}
 		}
