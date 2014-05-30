@@ -162,7 +162,7 @@ func (p *Connection) receiveLoop() {
 	}
 }
 
-func (p *Connection) getPathHandler(objpath ObjectPath) (chan<- *Message, bool) {
+func (p *Connection) handlerForPath(objpath ObjectPath) (chan<- *Message, bool) {
 	p.handlerMutex.Lock()
 	defer p.handlerMutex.Unlock()
 
@@ -174,7 +174,7 @@ func (p *Connection) getPathHandler(objpath ObjectPath) (chan<- *Message, bool) 
 		if ok {
 			return h, true
 		}
-		if idx < 0 {
+		if idx < 1 {
 			return nil, false
 		}
 		idx = strings.LastIndex(path[:idx], "/")
@@ -211,7 +211,7 @@ func (p *Connection) dispatchMessage(msg *Message) error {
 				return err
 			}
 		default:
-			handler, ok := p.getPathHandler(msg.Path)
+			handler, ok := p.handlerForPath(msg.Path)
 			if ok {
 				handler <- msg
 			} else {

@@ -95,7 +95,7 @@ func (s *S) TestGlob(c *C) {
 	ch3 := make(chan *Message)
 	ch4 := make(chan *Message)
 	hs := map[ObjectPath]chan<- *Message{
-		"*": ch1,
+		"/*": ch1,
 		"/foo": ch2,
 		"/foo/*": ch3,
 		"/foo/bar/*": ch4,
@@ -116,12 +116,12 @@ func (s *S) TestGlob(c *C) {
 		{"/foo/bar/x", ch4},
 		{"/foo/bar/baz/quux", ch4},
 	} {
-		ch, ok := bus.getPathHandler(p.p)
+		ch, ok := bus.handlerForPath(p.p)
 		c.Check(ok, Equals, true, Commentf("%v", p.p))
 		c.Check(ch, Equals, p.ch, Commentf("%v", p.p))
 	}
 
-	delete(hs, "*")
+	delete(hs, "/*")
 	delete(hs, "/foo")
 
 	for _, p := range []ObjectPath{
@@ -129,7 +129,7 @@ func (s *S) TestGlob(c *C) {
 		"/foo",
 		"/fie/baz",
 	} {
-		ch, ok := bus.getPathHandler(p)
+		ch, ok := bus.handlerForPath(p)
 		c.Check(ok, Equals, false, Commentf("%v", p))
 		c.Check(ch, IsNil, Commentf("%v", p))
 	}
