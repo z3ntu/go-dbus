@@ -10,6 +10,7 @@ import (
 	"log"
 	"net"
 	"os"
+	"strings"
 	"sync"
 	"sync/atomic"
 )
@@ -161,6 +162,26 @@ func (p *Connection) receiveLoop() {
 	}
 }
 
+func (p *Connection) handlerForPath(objpath ObjectPath) (chan<- *Message, bool) {
+	p.handlerMutex.Lock()
+	defer p.handlerMutex.Unlock()
+
+	path := string(objpath)
+	idx := strings.LastIndex(path, "/") + 1
+
+	for {
+		h, ok := p.objectPathHandlers[ObjectPath(path)]
+		if ok {
+			return h, true
+		}
+		if idx < 1 {
+			return nil, false
+		}
+		idx = strings.LastIndex(path[:idx], "/")
+		path = path[:idx+1] + "*"
+	}
+}
+
 func (p *Connection) dispatchMessage(msg *Message) error {
 	// Run the message through the registered filters, stopping
 	// processing if a filter returns nil.
@@ -190,9 +211,7 @@ func (p *Connection) dispatchMessage(msg *Message) error {
 				return err
 			}
 		default:
-			p.handlerMutex.Lock()
-			handler, ok := p.objectPathHandlers[msg.Path]
-			p.handlerMutex.Unlock()
+			handler, ok := p.handlerForPath(msg.Path)
 			if ok {
 				handler <- msg
 			} else {

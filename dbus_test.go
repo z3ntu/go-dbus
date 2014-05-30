@@ -88,3 +88,49 @@ func (s *S) TestConnectionRegisterMessageFilter(c *C) {
 	c.Assert(reply.Args(&busId, &extra), IsNil)
 	c.Assert(extra, Equals, "Added by filter")
 }
+
+func (s *S) TestGlob(c *C) {
+	ch1 := make(chan *Message)
+	ch2 := make(chan *Message)
+	ch3 := make(chan *Message)
+	ch4 := make(chan *Message)
+	hs := map[ObjectPath]chan<- *Message{
+		"/*": ch1,
+		"/foo": ch2,
+		"/foo/*": ch3,
+		"/foo/bar/*": ch4,
+		"/*/baz": nil,
+	}
+	bus, err := Connect(SessionBus)
+	c.Assert(err, IsNil)
+	defer bus.Close()
+	bus.objectPathHandlers = hs
+
+	for _, p := range []struct{p ObjectPath; ch chan<- *Message}{
+		{"/stuff", ch1},
+		{"/foo", ch2},
+		{"/foo/fie", ch3},
+		{"/foo/fie/fum", ch3},
+		{"/foo/bar", ch3},
+		{"/foo/bar/xy", ch4},
+		{"/foo/bar/x", ch4},
+		{"/foo/bar/baz/quux", ch4},
+	} {
+		ch, ok := bus.handlerForPath(p.p)
+		c.Check(ok, Equals, true, Commentf("%v", p.p))
+		c.Check(ch, Equals, p.ch, Commentf("%v", p.p))
+	}
+
+	delete(hs, "/*")
+	delete(hs, "/foo")
+
+	for _, p := range []ObjectPath{
+		"/stuff",
+		"/foo",
+		"/fie/baz",
+	} {
+		ch, ok := bus.handlerForPath(p)
+		c.Check(ok, Equals, false, Commentf("%v", p))
+		c.Check(ch, IsNil, Commentf("%v", p))
+	}
+}
