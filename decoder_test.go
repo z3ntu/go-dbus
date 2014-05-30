@@ -263,6 +263,19 @@ func (s *S) TestDecoderDecodeMap(c *C) {
 	c.Check(len(value), Equals, 2)
 	c.Check(value["one"], Equals, int32(1))
 	c.Check(value["forty two"], Equals, int32(42))
+	c.Check(dec.sigOffset, Equals, 5)
+
+	// Decode as blank interface
+	dec.dataOffset = 0
+	dec.sigOffset = 0
+	var value1 interface{}
+	c.Check(dec.Decode(&value1), Equals, nil)
+	iMap, ok := value1.(map[interface{}]interface{})
+	c.Assert(ok, Equals, true)
+	c.Check(len(iMap), Equals, 2)
+	c.Check(iMap["one"], Equals, int32(1))
+	c.Check(iMap["forty two"], Equals, int32(42))
+	c.Check(dec.sigOffset, Equals, 5)
 }
 
 func (s *S) TestDecoderDecodeStruct(c *C) {
