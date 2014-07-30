@@ -470,3 +470,19 @@ func (s *S) TestDecoderDecodeVariantMapIntStruct(c *C) {
 	_, ok := value1.Value.(map[interface{}]interface{})
 	c.Assert(ok, Equals, true)
 }
+
+func (s *S) TestDecoderSurvivesDecodeOfEmpty(c *C) {
+	dec := newDecoder("", []byte{}, binary.LittleEndian)
+
+	var value1 Variant
+	// actually checking for no segfault
+	c.Check(dec.Decode(&value1), NotNil)
+}
+
+func (s *S) TestDecoderSurvivesDecodeOffByOne(c *C) {
+	dec := newDecoder("s", []byte{0, 0, 0, 0, 0}, binary.LittleEndian)
+
+	var value1, value2 string
+	// actually checking for no segfault
+	c.Check(dec.Decode(&value1, &value2), NotNil)
+}
