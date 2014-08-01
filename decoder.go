@@ -158,7 +158,7 @@ func (self *decoder) readSignature() (Signature, error) {
 }
 
 func (self *decoder) decodeValue(v reflect.Value) error {
-	if len(self.signature) < self.sigOffset {
+	if len(self.signature) <= self.sigOffset {
 		return signatureOverrunError
 	}
 	sigCode := self.signature[self.sigOffset]
