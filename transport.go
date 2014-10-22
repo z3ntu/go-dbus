@@ -102,6 +102,8 @@ func (trans *nonceTcpTransport) Dial() (net.Conn, error) {
 		return nil, err
 	}
 	// Write the nonce data to the socket
+	// writing at this point doesn't not need to be synced as the connection
+	// is not shared at this point.
 	if _, err := conn.Write(data); err != nil {
 		conn.Close()
 		return nil, err

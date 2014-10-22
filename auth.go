@@ -115,6 +115,8 @@ func authenticate(conn net.Conn, authenticators []authenticator) error {
 	}
 
 	// The authentication process starts by writing a nul byte
+	// writing at this point doesn't not need to be synced as the connection
+	// is not shared at this point.
 	if _, err := conn.Write([]byte{0}); err != nil {
 		return err
 	}
@@ -122,6 +124,8 @@ func authenticate(conn net.Conn, authenticators []authenticator) error {
 	inStream := bufio.NewReader(conn)
 	send := func(command ...[]byte) ([][]byte, error) {
 		msg := bytes.Join(command, []byte(" "))
+		// writing at this point doesn't not need to be synced as the connection
+		// is not shared at this point.
 		_, err := conn.Write(append(msg, []byte("\r\n")...))
 		if err != nil {
 			return nil, err
@@ -178,6 +182,8 @@ func authenticate(conn net.Conn, authenticators []authenticator) error {
 		return errors.New("Could not authenticate with any mechanism")
 	}
 	// XXX: UNIX FD negotiation would go here.
+	// writing at this point doesn't not need to be synced as the connection
+	// is not shared at this point.
 	if _, err := conn.Write([]byte("BEGIN\r\n")); err != nil {
 		return err
 	}
