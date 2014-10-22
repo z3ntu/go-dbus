@@ -115,7 +115,7 @@ func authenticate(conn net.Conn, authenticators []authenticator) error {
 	}
 
 	// The authentication process starts by writing a nul byte
-	// writing at this point doesn't not need to be synced as the connection
+	// writing at this point does not need to be synced as the connection
 	// is not shared at this point.
 	if _, err := conn.Write([]byte{0}); err != nil {
 		return err
