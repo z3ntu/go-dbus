@@ -111,7 +111,7 @@ func (sig Signature) NextType(offset int) (next int, err error) {
 		}
 		next += 1
 	case '(':
-		// A struct: consume types until we 
+		// A struct: consume types until we
 		next = offset + 1
 		for {
 			if next < len(sig) && sig[next] == ')' {
