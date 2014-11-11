@@ -67,11 +67,11 @@ func (s *S) TestConnectionRequestNameQueued(c *C) {
 
 	name1 := bus1.RequestName("com.example.GoDbus", 0)
 	c.Check(<-name1.C, IsNil)
-	c.Check(name1.needsRelease, Equals, true)
+	c.Check(name1.checkNeedsRelease(), Equals, true)
 
 	name2 := bus2.RequestName("com.example.GoDbus", 0)
 	c.Check(<-name2.C, Equals, ErrNameInQueue)
-	c.Check(name2.needsRelease, Equals, true)
+	c.Check(name2.checkNeedsRelease(), Equals, true)
 
 	// Release the name on the first connection
 	c.Check(name1.Release(), IsNil)
@@ -94,11 +94,11 @@ func (s *S) TestConnectionRequestNameDoNotQueue(c *C) {
 	name1 := bus1.RequestName("com.example.GoDbus", 0)
 	defer name1.Release()
 	c.Check(<-name1.C, IsNil)
-	c.Check(name1.needsRelease, Equals, true)
+	c.Check(name1.checkNeedsRelease(), Equals, true)
 
 	name2 := bus2.RequestName("com.example.GoDbus", NameFlagDoNotQueue)
 	c.Check(<-name2.C, Equals, ErrNameExists)
-	c.Check(name2.needsRelease, Equals, false)
+	c.Check(name2.checkNeedsRelease(), Equals, false)
 
 	c.Check(name2.Release(), IsNil)
 }
@@ -116,12 +116,12 @@ func (s *S) TestConnectionRequestNameAllowReplacement(c *C) {
 	name1 := bus1.RequestName("com.example.GoDbus", NameFlagAllowReplacement)
 	defer name1.Release()
 	c.Check(<-name1.C, IsNil)
-	c.Check(name1.needsRelease, Equals, true)
+	c.Check(name1.checkNeedsRelease(), Equals, true)
 
 	name2 := bus2.RequestName("com.example.GoDbus", NameFlagReplaceExisting)
 	defer name2.Release()
 	c.Check(<-name2.C, IsNil)
-	c.Check(name2.needsRelease, Equals, true)
+	c.Check(name2.checkNeedsRelease(), Equals, true)
 
 	// The first name owner loses possession.
 	c.Check(<-name1.C, Equals, ErrNameLost)
