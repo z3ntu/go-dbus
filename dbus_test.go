@@ -95,18 +95,21 @@ func (s *S) TestGlob(c *C) {
 	ch3 := make(chan *Message)
 	ch4 := make(chan *Message)
 	hs := map[ObjectPath]chan<- *Message{
-		"/*": ch1,
-		"/foo": ch2,
-		"/foo/*": ch3,
+		"/*":         ch1,
+		"/foo":       ch2,
+		"/foo/*":     ch3,
 		"/foo/bar/*": ch4,
-		"/*/baz": nil,
+		"/*/baz":     nil,
 	}
 	bus, err := Connect(SessionBus)
 	c.Assert(err, IsNil)
 	defer bus.Close()
 	bus.objectPathHandlers = hs
 
-	for _, p := range []struct{p ObjectPath; ch chan<- *Message}{
+	for _, p := range []struct {
+		p  ObjectPath
+		ch chan<- *Message
+	}{
 		{"/stuff", ch1},
 		{"/foo", ch2},
 		{"/foo/fie", ch3},

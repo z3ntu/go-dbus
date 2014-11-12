@@ -3,20 +3,23 @@ package dbus
 import (
 	"errors"
 	"log"
+	"sync"
 )
 
 type nameInfo struct {
 	bus          *Connection
 	busName      string
-	currentOwner string
 	signalWatch  *SignalWatch
+	lock         sync.Mutex
+	currentOwner string
 	watches      []*NameWatch
 }
 
 type NameWatch struct {
-	info      *nameInfo
-	C         chan string
-	cancelled bool
+	info       *nameInfo
+	C          chan string
+	cancelLock sync.Mutex
+	cancelled  bool
 }
 
 func newNameInfo(bus *Connection, busName string) (*nameInfo, error) {
@@ -34,6 +37,7 @@ func newNameInfo(bus *Connection, busName string) (*nameInfo, error) {
 	if err != nil {
 		return nil, err
 	}
+	info.signalWatch = watch
 	go func() {
 		for msg := range watch.C {
 			var busName, oldOwner, newOwner string
@@ -41,10 +45,9 @@ func newNameInfo(bus *Connection, busName string) (*nameInfo, error) {
 				log.Println("Could not decode NameOwnerChanged message:", err)
 				continue
 			}
-			info.handleOwnerChange(newOwner)
+			info.handleOwnerChange(newOwner, false)
 		}
 	}()
-	info.signalWatch = watch
 
 	// spawn a goroutine to find the current name owner
 	go info.checkCurrentOwner()
@@ -59,13 +62,19 @@ func (self *nameInfo) checkCurrentOwner() {
 			log.Println("Unexpected error from GetNameOwner:", err)
 		}
 	}
+	self.lock.Lock()
+	defer self.lock.Unlock()
 	if self.currentOwner == "" {
 		// Simulate an ownership change message.
-		self.handleOwnerChange(currentOwner)
+		self.handleOwnerChange(currentOwner, true)
 	}
 }
 
-func (self *nameInfo) handleOwnerChange(newOwner string) {
+func (self *nameInfo) handleOwnerChange(newOwner string, lockAcquired bool) {
+	if !lockAcquired {
+		self.lock.Lock()
+		defer self.lock.Unlock()
+	}
 	for _, watch := range self.watches {
 		watch.C <- newOwner
 	}
@@ -83,6 +92,8 @@ func (p *Connection) WatchName(busName string) (watch *NameWatch, err error) {
 		p.nameInfo[busName] = info
 	}
 	watch = &NameWatch{info: info, C: make(chan string, 1)}
+	info.lock.Lock()
+	defer info.lock.Unlock()
 	info.watches = append(info.watches, watch)
 
 	// If we're hooking up to an existing nameOwner and it already
@@ -94,16 +105,19 @@ func (p *Connection) WatchName(busName string) (watch *NameWatch, err error) {
 }
 
 func (watch *NameWatch) Cancel() error {
+	watch.cancelLock.Lock()
+	defer watch.cancelLock.Unlock()
 	if watch.cancelled {
 		return nil
 	}
 	watch.cancelled = true
-	close(watch.C)
 
 	info := watch.info
 	bus := info.bus
 	bus.nameInfoMutex.Lock()
 	defer bus.nameInfoMutex.Unlock()
+	info.lock.Lock()
+	defer info.lock.Unlock()
 
 	found := false
 	for i, other := range info.watches {
@@ -117,6 +131,7 @@ func (watch *NameWatch) Cancel() error {
 	if !found {
 		return errors.New("NameOwnerWatch already cancelled")
 	}
+	close(watch.C)
 	if len(info.watches) != 0 {
 		// There are other watches interested in this name, so
 		// leave the nameOwner in place.
@@ -133,6 +148,7 @@ type BusName struct {
 	Flags NameFlags
 	C     chan error
 
+	lock         sync.Mutex
 	cancelled    bool
 	needsRelease bool
 
@@ -163,51 +179,22 @@ var (
 // acquired.
 func (p *Connection) RequestName(busName string, flags NameFlags) *BusName {
 	name := &BusName{
-		bus:              p,
-		Name:             busName,
-		Flags:            flags,
-		C:                make(chan error, 1)}
+		bus:   p,
+		Name:  busName,
+		Flags: flags,
+		C:     make(chan error, 1)}
 	go name.request()
 	return name
 }
 
 func (name *BusName) request() {
+	name.lock.Lock()
+	defer name.lock.Unlock()
 	if name.cancelled {
 		return
 	}
-	result, err := name.bus.busProxy.RequestName(name.Name, uint32(name.Flags))
-	if err != nil {
-		log.Println("Error requesting bus name", name.Name, "err =", err)
-		return
-	}
-	subscribe := false
-	switch result {
-	case 1:
-		// DBUS_REQUEST_NAME_REPLY_PRIMARY_OWNER
-		name.C <- nil
-		subscribe = true
-		name.needsRelease = true
-	case 2:
-		// DBUS_REQUEST_NAME_REPLY_IN_QUEUE
-		name.C <- ErrNameInQueue
-		subscribe = true
-		name.needsRelease = true
-	case 3:
-		// DBUS_REQUEST_NAME_REPLY_EXISTS
-		name.C <- ErrNameExists
-		name.Release()
-	case 4:
-		// DBUS_REQUEST_NAME_REPLY_ALREADY_OWNER
-		name.C <- ErrNameAlreadyOwned
-		name.Release()
-	default:
-		// assume that other responses mean we couldn't own
-		// the name
-		name.C <- errors.New("Unknown error")
-		name.Release()
-	}
 
-	if subscribe && !name.cancelled {
+	if !name.cancelled {
 		watch, err := name.bus.WatchSignal(&MatchRule{
 			Type:      TypeSignal,
 			Sender:    BUS_DAEMON_NAME,
@@ -223,11 +210,11 @@ func (name *BusName) request() {
 		name.lostWatch = watch
 		go func() {
 			for _ = range name.lostWatch.C {
-				if !name.cancelled {
-					name.C <- ErrNameLost
-					close(name.C)
-					name.cancelled = true
-				}
+				name.lock.Lock()
+				defer name.lock.Unlock()
+				name.C <- ErrNameLost
+				name.release(false)
+				break
 			}
 		}()
 
@@ -246,38 +233,74 @@ func (name *BusName) request() {
 		name.acquiredWatch = watch
 		go func() {
 			for _ = range name.acquiredWatch.C {
-				if !name.cancelled {
-					name.C <- nil
-				}
+				name.C <- nil
 			}
 		}()
 
 		// XXX: if we disconnect from the bus, we should
 		// report the name being lost.
 	}
+
+	result, err := name.bus.busProxy.RequestName(name.Name, uint32(name.Flags))
+	if err != nil {
+		log.Println("Error requesting bus name", name.Name, "err =", err)
+		return
+	}
+	switch result {
+	case 1:
+		// DBUS_REQUEST_NAME_REPLY_PRIMARY_OWNER
+		name.needsRelease = true
+	case 2:
+		// DBUS_REQUEST_NAME_REPLY_IN_QUEUE
+		name.needsRelease = true
+		name.C <- ErrNameInQueue
+	case 3:
+		// DBUS_REQUEST_NAME_REPLY_EXISTS
+		name.C <- ErrNameExists
+		name.release(false)
+	case 4:
+		// DBUS_REQUEST_NAME_REPLY_ALREADY_OWNER
+		name.C <- ErrNameAlreadyOwned
+		name.release(false)
+	default:
+		// assume that other responses mean we couldn't own
+		// the name
+		name.C <- errors.New("Unknown error")
+		name.release(false)
+	}
+}
+
+func (name *BusName) checkNeedsRelease() bool {
+	name.lock.Lock()
+	defer name.lock.Unlock()
+	return name.needsRelease
 }
 
 // Release releases well known name on the message bus.
 func (name *BusName) Release() error {
+	name.lock.Lock()
+	defer name.lock.Unlock()
+	return name.release(name.needsRelease)
+}
+
+func (name *BusName) release(needsRelease bool) error {
 	if name.cancelled {
 		return nil
 	}
 	name.cancelled = true
-	close(name.C)
 	if name.acquiredWatch != nil {
 		if err := name.acquiredWatch.Cancel(); err != nil {
 			return err
 		}
-		name.acquiredWatch = nil
 	}
 	if name.lostWatch != nil {
 		if err := name.lostWatch.Cancel(); err != nil {
 			return err
 		}
-		name.lostWatch = nil
 	}
+	close(name.C)
 
-	if name.needsRelease {
+	if needsRelease {
 		result, err := name.bus.busProxy.ReleaseName(name.Name)
 		if err != nil {
 			return err

@@ -355,14 +355,14 @@ func (s *S) TestDecoderDecodeVariant(c *C) {
 
 func (s *S) TestDecoderDecodeVariantMap(c *C) {
 	dec := newDecoder("v", []byte{
-		5,      // len("a{ii}")
+		5,                       // len("a{ii}")
 		'a', '{', 'i', 'i', '}', // Signature("a{ii}")
-		0, 0,			 // padding
-		16, 0, 0, 0, 0, 0, 0, 0,	 // array length
-		42, 0, 0, 0,		 // int32(42)
-		17, 0, 0, 0,		 // int32(17)
-		44, 0, 0, 0,		 // int32(44)
-		33, 0, 0, 0},		 // int32(33)
+		0, 0, // padding
+		16, 0, 0, 0, 0, 0, 0, 0, // array length
+		42, 0, 0, 0, // int32(42)
+		17, 0, 0, 0, // int32(17)
+		44, 0, 0, 0, // int32(44)
+		33, 0, 0, 0}, // int32(33)
 		binary.LittleEndian)
 
 	var value1 Variant
@@ -384,9 +384,9 @@ func (s *S) TestDecoderDecodeVariantMap(c *C) {
 
 func (s *S) TestDecoderDecodeVariantMapStringInt(c *C) {
 	dec := newDecoder("v", []byte{
-		5,      // len("a{si}")
+		5,                       // len("a{si}")
 		'a', '{', 's', 'i', '}', // Signature("a{si}")
-		0, 0,			 // padding
+		0, 0, // padding
 		36, 0, 0, 0, // array length
 		0, 0, 0, 0, // padding
 		3, 0, 0, 0, // len("one")
@@ -418,17 +418,17 @@ func (s *S) TestDecoderDecodeVariantMapStringInt(c *C) {
 
 func (s *S) TestDecoderDecodeVariantMapIntString(c *C) {
 	dec := newDecoder("v", []byte{
-		5,      // len("a{is}")
+		5,                       // len("a{is}")
 		'a', '{', 'i', 's', '}', // Signature("a{is}")
-		0, 0,			 // padding
-		34, 0, 0, 0,		 // array length
-		0, 0, 0, 0,	         // padding (maps are 8-aligned)
-		1, 0, 0, 0,		 // int32(1)
-		3, 0, 0, 0,		 // len("one")
-		'o', 'n', 'e', 0,	 // "one"
-		0, 0, 0, 0,		 // padding
-		42, 0, 0, 0,		 // int32(42)
-		9, 0, 0, 0,		 // len("forty two")
+		0, 0, // padding
+		34, 0, 0, 0, // array length
+		0, 0, 0, 0, // padding (maps are 8-aligned)
+		1, 0, 0, 0, // int32(1)
+		3, 0, 0, 0, // len("one")
+		'o', 'n', 'e', 0, // "one"
+		0, 0, 0, 0, // padding
+		42, 0, 0, 0, // int32(42)
+		9, 0, 0, 0, // len("forty two")
 		'f', 'o', 'r', 't', 'y', ' ', 't', 'w', 'o', 0,
 		0, 0}, // padding
 		binary.LittleEndian)
@@ -452,15 +452,15 @@ func (s *S) TestDecoderDecodeVariantMapIntString(c *C) {
 
 func (s *S) TestDecoderDecodeVariantMapIntStruct(c *C) {
 	dec := newDecoder("v", []byte{
-		8,      // len("a{i(ii)}")
+		8,                                      // len("a{i(ii)}")
 		'a', '{', 'i', '(', 'i', 'i', ')', '}', // Signature("a{i(ii)}")
-		0, 0, 0,				// padding
-		12, 0, 0, 0,	                        // array length
-		0, 0, 0, 0,	                        // padding (maps are 8-aligned)
-		1, 0, 0, 0,				// int32(1)
-		2, 0, 0, 0,				// int32(2)
-		3, 0, 0, 0,				// int32(3)
-		0, 0, 0, 0},				// padding
+		0, 0, 0, // padding
+		12, 0, 0, 0, // array length
+		0, 0, 0, 0, // padding (maps are 8-aligned)
+		1, 0, 0, 0, // int32(1)
+		2, 0, 0, 0, // int32(2)
+		3, 0, 0, 0, // int32(3)
+		0, 0, 0, 0}, // padding
 		binary.LittleEndian)
 	var value1 Variant
 	if err := dec.Decode(&value1); err != nil {
