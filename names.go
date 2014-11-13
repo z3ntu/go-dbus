@@ -151,9 +151,12 @@ func (watch *NameWatch) Cancel() error {
 	if watch.cancelled {
 		return nil
 	}
-	watch.cancelled = true
 	err := removeNameWatch(watch.watch)
+	if err != nil {
+		return err
+	}
 	close(watch.C)
+	watch.cancelled = true
 	return err
 }
 
@@ -303,7 +306,6 @@ func (name *BusName) release(needsRelease bool) error {
 	if name.cancelled {
 		return nil
 	}
-	name.cancelled = true
 	if name.acquiredWatch != nil {
 		if err := name.acquiredWatch.Cancel(); err != nil {
 			return err
@@ -314,8 +316,6 @@ func (name *BusName) release(needsRelease bool) error {
 			return err
 		}
 	}
-	close(name.C)
-
 	if needsRelease {
 		result, err := name.bus.busProxy.ReleaseName(name.Name)
 		if err != nil {
@@ -326,5 +326,7 @@ func (name *BusName) release(needsRelease bool) error {
 		}
 		name.needsRelease = false
 	}
+	close(name.C)
+	name.cancelled = true
 	return nil
 }
