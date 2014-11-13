@@ -162,7 +162,7 @@ func (p *Connection) WatchSignal(rule *MatchRule) (*SignalWatch, error) {
 	watch := &SignalWatch{
 		C: make(chan *Message)}
 	// lock because we expose watch early to a possible watch.Cancel()
-        // through the name watch
+	// through the name watch
 	watch.lock.Lock()
 	defer watch.lock.Unlock()
 	// Does the rule match a bus name other than the daemon?
