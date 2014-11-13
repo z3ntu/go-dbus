@@ -85,14 +85,13 @@ func (s *S) TestConnectionWatchSignalWithBusName(c *C) {
 	if err := bus.Send(signal); err != nil {
 		c.Fatal(err)
 	}
-
 	signal2 := <-received
 	c.Check(signal2, NotNil)
 }
 
 func (s *S) TestSignalWatchSetAdd(c *C) {
 	set := make(signalWatchSet)
-	watch := SignalWatch{rule: MatchRule{
+	watch := signalWatch{rule: MatchRule{
 		Type:      TypeSignal,
 		Sender:    ":1.42",
 		Path:      "/foo",
@@ -106,19 +105,19 @@ func (s *S) TestSignalWatchSetAdd(c *C) {
 	c.Assert(ok, Equals, true)
 	watches, ok := byMember["Bar"]
 	c.Assert(ok, Equals, true)
-	c.Check(watches, DeepEquals, []*SignalWatch{&watch})
+	c.Check(watches, DeepEquals, []*signalWatch{&watch})
 }
 
 func (s *S) TestSignalWatchSetRemove(c *C) {
 	set := make(signalWatchSet)
-	watch1 := SignalWatch{rule: MatchRule{
+	watch1 := signalWatch{rule: MatchRule{
 		Type:      TypeSignal,
 		Sender:    ":1.42",
 		Path:      "/foo",
 		Interface: "com.example.Foo",
 		Member:    "Bar"}}
 	set.Add(&watch1)
-	watch2 := SignalWatch{rule: MatchRule{
+	watch2 := signalWatch{rule: MatchRule{
 		Type:      TypeSignal,
 		Sender:    ":1.43",
 		Path:      "/foo",
@@ -127,7 +126,7 @@ func (s *S) TestSignalWatchSetRemove(c *C) {
 	set.Add(&watch2)
 
 	c.Check(set.Remove(&watch1), Equals, true)
-	c.Check(set["/foo"]["com.example.Foo"]["Bar"], DeepEquals, []*SignalWatch{&watch2})
+	c.Check(set["/foo"]["com.example.Foo"]["Bar"], DeepEquals, []*signalWatch{&watch2})
 
 	// A second attempt at removal fails
 	c.Check(set.Remove(&watch1), Equals, false)
@@ -138,7 +137,7 @@ func (s *S) TestSignalWatchSetFindMatches(c *C) {
 	msg.Sender = ":1.42"
 
 	set := make(signalWatchSet)
-	watch := SignalWatch{rule: MatchRule{
+	watch := signalWatch{rule: MatchRule{
 		Type:      TypeSignal,
 		Sender:    ":1.42",
 		Path:      "/foo",
@@ -146,26 +145,26 @@ func (s *S) TestSignalWatchSetFindMatches(c *C) {
 		Member:    "Bar"}}
 
 	set.Add(&watch)
-	c.Check(set.FindMatches(msg), DeepEquals, []*SignalWatch{&watch})
+	c.Check(set.FindMatches(msg), DeepEquals, []*signalWatch{&watch})
 	set.Remove(&watch)
 
 	// An empty path also matches
 	watch.rule.Path = ""
 	set.Add(&watch)
-	c.Check(set.FindMatches(msg), DeepEquals, []*SignalWatch{&watch})
+	c.Check(set.FindMatches(msg), DeepEquals, []*signalWatch{&watch})
 	set.Remove(&watch)
 
 	// Or an empty interface
 	watch.rule.Path = "/foo"
 	watch.rule.Interface = ""
 	set.Add(&watch)
-	c.Check(set.FindMatches(msg), DeepEquals, []*SignalWatch{&watch})
+	c.Check(set.FindMatches(msg), DeepEquals, []*signalWatch{&watch})
 	set.Remove(&watch)
 
 	// Or an empty member
 	watch.rule.Interface = "com.example.Foo"
 	watch.rule.Member = ""
 	set.Add(&watch)
-	c.Check(set.FindMatches(msg), DeepEquals, []*SignalWatch{&watch})
+	c.Check(set.FindMatches(msg), DeepEquals, []*signalWatch{&watch})
 	set.Remove(&watch)
 }
