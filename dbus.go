@@ -237,7 +237,7 @@ func (p *Connection) dispatchMessage(msg *Message) error {
 		watches := p.signalMatchRules.FindMatches(msg)
 		p.handlerMutex.Unlock()
 		for _, watch := range watches {
-			watch.C <- msg
+			watch.cb(msg)
 		}
 	}
 	return nil
