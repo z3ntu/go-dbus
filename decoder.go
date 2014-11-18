@@ -422,7 +422,6 @@ func (self *decoder) decodeValue(v reflect.Value) error {
 			}
 			self.sigOffset = afterElemOffset
 			return nil
-
 		}
 	case '(':
 		self.align(8)
