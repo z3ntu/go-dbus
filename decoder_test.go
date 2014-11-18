@@ -220,6 +220,17 @@ func (s *S) TestDecoderDecodeEmptyArray(c *C) {
 	c.Check(dec.dataOffset, Equals, 4)
 	c.Check(dec.sigOffset, Equals, 2)
 	c.Check(value, DeepEquals, []int32{})
+
+	// Decode as blank interface
+	dec.dataOffset = 0
+	dec.sigOffset = 0
+	var value1 interface{}
+	if err := dec.Decode(&value1); err != nil {
+		c.Error("Decode as interface:", err)
+	}
+	c.Check(dec.dataOffset, Equals, 4)
+	c.Check(dec.sigOffset, Equals, 2)
+	c.Check(value1, DeepEquals, []interface{}{})
 }
 
 func (s *S) TestDecoderDecodeArrayPaddingAfterLength(c *C) {

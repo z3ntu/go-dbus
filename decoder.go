@@ -407,8 +407,6 @@ func (self *decoder) decodeValue(v reflect.Value) error {
 					mapv[key] = value
 				}
 				v.Set(reflect.ValueOf(mapv))
-				self.sigOffset = afterElemOffset
-				return nil
 			} else {
 				array := make([]interface{}, 0)
 				for self.dataOffset < arrayEnd {
@@ -421,8 +419,10 @@ func (self *decoder) decodeValue(v reflect.Value) error {
 					array = append(array, elem)
 				}
 				v.Set(reflect.ValueOf(array))
-				return nil
 			}
+			self.sigOffset = afterElemOffset
+			return nil
+
 		}
 	case '(':
 		self.align(8)
