@@ -350,8 +350,6 @@ func (self *decoder) decodeValue(v reflect.Value) error {
 					return err
 				}
 			}
-			self.sigOffset = afterElemOffset
-			return nil
 		case v.Kind() == reflect.Slice:
 			if v.IsNil() {
 				v.Set(reflect.MakeSlice(v.Type(), 0, 0))
@@ -366,8 +364,6 @@ func (self *decoder) decodeValue(v reflect.Value) error {
 				}
 				v.Set(reflect.Append(v, elem))
 			}
-			self.sigOffset = afterElemOffset
-			return nil
 		case v.Kind() == reflect.Map:
 			if self.signature[elemSigOffset] != '{' {
 				return errors.New("Expected type code '{' but got " + string(self.signature[elemSigOffset]) + " when decoding to map")
@@ -388,8 +384,6 @@ func (self *decoder) decodeValue(v reflect.Value) error {
 				}
 				v.SetMapIndex(key, value)
 			}
-			self.sigOffset = afterElemOffset
-			return nil
 		case typeBlankInterface.AssignableTo(v.Type()):
 			if self.signature[elemSigOffset] == '{' {
 				mapv := make(map[interface{}]interface{})
@@ -420,9 +414,9 @@ func (self *decoder) decodeValue(v reflect.Value) error {
 				}
 				v.Set(reflect.ValueOf(array))
 			}
-			self.sigOffset = afterElemOffset
-			return nil
 		}
+		self.sigOffset = afterElemOffset
+		return nil
 	case '(':
 		self.align(8)
 		// Do we have a pointer to a struct?
