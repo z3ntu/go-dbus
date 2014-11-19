@@ -4,7 +4,6 @@ import (
 	"encoding/binary"
 	"errors"
 	"io"
-	"sync"
 )
 
 // See the D-Bus tutorial for information about message types.
@@ -26,8 +25,6 @@ var messageTypeString = map[MessageType]string{
 	TypeSignal:       "signal",
 	TypeError:        "error",
 }
-
-var writeMutex sync.Mutex
 
 func (t MessageType) String() string { return messageTypeString[t] }
 
@@ -320,12 +317,8 @@ func readMessage(r io.Reader) (*Message, error) {
 	return msg, nil
 }
 
-// WriteTo serialises the message and writes it to the given writer.
+// WriteTo serialises the message and writes it to the given writer. Not atomic!
 func (p *Message) WriteTo(w io.Writer) (int64, error) {
-	// message writing needs to be sequential
-	writeMutex.Lock()
-	defer writeMutex.Unlock()
-
 	fields := make([]headerField, 0, 10)
 	if p.Path != "" {
 		fields = append(fields, headerField{1, Variant{p.Path}})
