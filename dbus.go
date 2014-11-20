@@ -37,6 +37,7 @@ type Connection struct {
 	// The unique name of this connection on the message bus.
 	UniqueName string
 	conn       net.Conn
+	writeLock  sync.Mutex
 	busProxy   BusDaemon
 	lastSerial uint32
 
@@ -251,12 +252,16 @@ func (p *Connection) nextSerial() uint32 {
 	return atomic.AddUint32(&p.lastSerial, 1)
 }
 
+func (p *Connection) atomicWriteMessage(msg *Message) error {
+	p.writeLock.Lock()
+	defer p.writeLock.Unlock()
+	_, err := msg.WriteTo(p.conn)
+	return err
+}
+
 func (p *Connection) Send(msg *Message) error {
 	msg.setSerial(p.nextSerial())
-	if _, err := msg.WriteTo(p.conn); err != nil {
-		return err
-	}
-	return nil
+	return p.atomicWriteMessage(msg)
 }
 
 func (p *Connection) SendWithReply(msg *Message) (*Message, error) {
@@ -272,7 +277,7 @@ func (p *Connection) SendWithReply(msg *Message) (*Message, error) {
 	p.methodCallReplies[serial] = replyChan
 	p.handlerMutex.Unlock()
 
-	if _, err := msg.WriteTo(p.conn); err != nil {
+	if err := p.atomicWriteMessage(msg); err != nil {
 		p.handlerMutex.Lock()
 		delete(p.methodCallReplies, serial)
 		p.handlerMutex.Unlock()
