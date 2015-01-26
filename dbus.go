@@ -35,12 +35,13 @@ type MessageFilter struct {
 // Connection represents a connection to a message bus.
 type Connection struct {
 	// The unique name of this connection on the message bus.
-	UniqueName string
-	conn       net.Conn
-	writeLock  sync.Mutex
-	busProxy   BusDaemon
-	lastSerial uint32
-	connOpen   bool
+	UniqueName   string
+	conn         net.Conn
+	writeLock    sync.Mutex
+	busProxy     BusDaemon
+	lastSerial   uint32
+	connOpen     bool
+	connOpenLock sync.Mutex
 
 	handlerMutex       sync.Mutex // covers the next three
 	messageFilters     []*MessageFilter
@@ -121,10 +122,10 @@ func Connect(busType StandardBus) (*Connection, error) {
 	if bus.conn, err = trans.Dial(); err != nil {
 		return nil, err
 	}
-	bus.connOpen = true
+	bus.setConnOpen(true)
 
 	if err = authenticate(bus.conn, nil); err != nil {
-		bus.conn.Close()
+		bus.Close()
 		return nil, err
 	}
 
@@ -144,6 +145,18 @@ func Connect(busType StandardBus) (*Connection, error) {
 	return bus, nil
 }
 
+func (p *Connection) setConnOpen(o bool) {
+	p.connOpenLock.Lock()
+	defer p.connOpenLock.Unlock()
+	p.connOpen = o
+}
+
+func (p *Connection) isConnOpen() bool {
+	p.connOpenLock.Lock()
+	defer p.connOpenLock.Unlock()
+	return p.connOpen
+}
+
 func (p *Connection) Authenticate() error {
 	log.Println("dbus.Connection.Authenticate() is deprecated.  This call can be removed")
 	return nil
@@ -153,7 +166,7 @@ func (p *Connection) receiveLoop() {
 	for {
 		msg, err := readMessage(p.conn)
 		if err != nil {
-			if err != io.EOF && p.connOpen {
+			if err != io.EOF && p.isConnOpen() {
 				log.Println("Failed to read message:", err)
 			}
 			break
@@ -247,7 +260,7 @@ func (p *Connection) dispatchMessage(msg *Message) error {
 }
 
 func (p *Connection) Close() error {
-	p.connOpen = false
+	p.setConnOpen(false)
 	return p.conn.Close()
 }
 
