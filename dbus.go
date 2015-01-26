@@ -40,6 +40,7 @@ type Connection struct {
 	writeLock  sync.Mutex
 	busProxy   BusDaemon
 	lastSerial uint32
+	connOpen   bool
 
 	handlerMutex       sync.Mutex // covers the next three
 	messageFilters     []*MessageFilter
@@ -120,6 +121,7 @@ func Connect(busType StandardBus) (*Connection, error) {
 	if bus.conn, err = trans.Dial(); err != nil {
 		return nil, err
 	}
+	bus.connOpen = true
 
 	if err = authenticate(bus.conn, nil); err != nil {
 		bus.conn.Close()
@@ -151,7 +153,7 @@ func (p *Connection) receiveLoop() {
 	for {
 		msg, err := readMessage(p.conn)
 		if err != nil {
-			if err != io.EOF {
+			if err != io.EOF && p.connOpen {
 				log.Println("Failed to read message:", err)
 			}
 			break
@@ -245,6 +247,7 @@ func (p *Connection) dispatchMessage(msg *Message) error {
 }
 
 func (p *Connection) Close() error {
+	p.connOpen = false
 	return p.conn.Close()
 }
 
