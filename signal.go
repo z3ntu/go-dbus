@@ -94,7 +94,7 @@ func (self signalWatchSet) FindMatches(msg *Message) (matches []*signalWatch) {
 // handle receiving signals with callback
 type signalWatch struct {
 	bus  *Connection
-	rule MatchRule
+	rule *MatchRule
 	cb   func(*Message)
 
 	cancelLock sync.Mutex
@@ -107,7 +107,7 @@ func (p *Connection) watchSignal(rule *MatchRule, cb func(*Message)) (*signalWat
 	}
 	watch := &signalWatch{
 		bus:  p,
-		rule: *rule,
+		rule: rule,
 		cb:   cb}
 
 	p.handlerMutex.Lock()

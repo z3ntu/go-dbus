@@ -91,7 +91,7 @@ func (s *S) TestConnectionWatchSignalWithBusName(c *C) {
 
 func (s *S) TestSignalWatchSetAdd(c *C) {
 	set := make(signalWatchSet)
-	watch := signalWatch{rule: MatchRule{
+	watch := signalWatch{rule: &MatchRule{
 		Type:      TypeSignal,
 		Sender:    ":1.42",
 		Path:      "/foo",
@@ -110,14 +110,14 @@ func (s *S) TestSignalWatchSetAdd(c *C) {
 
 func (s *S) TestSignalWatchSetRemove(c *C) {
 	set := make(signalWatchSet)
-	watch1 := signalWatch{rule: MatchRule{
+	watch1 := signalWatch{rule: &MatchRule{
 		Type:      TypeSignal,
 		Sender:    ":1.42",
 		Path:      "/foo",
 		Interface: "com.example.Foo",
 		Member:    "Bar"}}
 	set.Add(&watch1)
-	watch2 := signalWatch{rule: MatchRule{
+	watch2 := signalWatch{rule: &MatchRule{
 		Type:      TypeSignal,
 		Sender:    ":1.43",
 		Path:      "/foo",
@@ -137,7 +137,7 @@ func (s *S) TestSignalWatchSetFindMatches(c *C) {
 	msg.Sender = ":1.42"
 
 	set := make(signalWatchSet)
-	watch := signalWatch{rule: MatchRule{
+	watch := signalWatch{rule: &MatchRule{
 		Type:      TypeSignal,
 		Sender:    ":1.42",
 		Path:      "/foo",
