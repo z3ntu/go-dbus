@@ -308,7 +308,7 @@ func readMessage(r io.Reader) (*Message, error) {
 	}
 
 	msg.body = make([]byte, msgBodyLength)
-	if n, err := r.Read(msg.body); n < len(msg.body) {
+	if n, err := io.ReadFull(r, msg.body); n < len(msg.body) {
 		if err == nil {
 			err = errors.New("Could not read message body")
 		}
