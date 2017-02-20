@@ -308,13 +308,11 @@ func readMessage(r io.Reader) (*Message, error) {
 	}
 
 	msg.body = make([]byte, msgBodyLength)
-	for bytesLeft := msgBodyLength; bytesLeft > 0; {
-		pos := msgBodyLength - bytesLeft
-		n, err := r.Read(msg.body[pos:])
-		if err != nil {
-			return nil, err
+	if n, err := io.ReadFull(r, msg.body); n < len(msg.body) {
+		if err == nil {
+			err = errors.New("Could not read message body")
 		}
-		bytesLeft -= uint32(n)
+		return nil, err
 	}
 	return msg, nil
 }
